@@ -13,7 +13,7 @@ This guide explains how to deploy ACE-Step Studio on a RunPod GPU instance using
     -   Go to **Templates** in RunPod.
     -   Click **New Template**.
     -   **Name**: ACE-Step Studio
-    -   **Image Name**: `fngarvin/ace-step-studio:latest` (or your Docker Hub image)
+    -   **Image Name**: `ghcr.io/fngarvin/ace-step-studio:latest` (or your fork's URL)
     -   **Container Disk**: 20 GB (Recommended)
     -   **Volume Disk**: 50 GB (Recommended for models)
     -   **Volume Mount Path**: `/workspace/ACE-Step-1.5/checkpoints` (Crucial for persisting models!)
