@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+backend/.venv
+backend/__pycache__
+frontend/node_modules
+data
+docs
+images
+
+*.log
+.DS_Store

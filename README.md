@@ -32,20 +32,34 @@ See the full step-by-step setup guide here: [docs/installation.md](./docs/instal
 
 ## Quick Start
 
+## Quick Start
+
+### Local Installation (Linux/macOS)
 ```bash
-# Install (macOS)
-./scripts/install_mac.sh
+# Installs uv, python 3.11, torch, and application dependencies
+./scripts/install.sh
 
 # Start app
 ./scripts/start.sh
 ```
 
-Windows:
-
+### Local Installation (Windows)
 ```powershell
+# Installs uv, python 3.11, torch, and application dependencies
 ./scripts/install_windows.ps1
+
+# Start app
 ./scripts/start.bat
 ```
+
+### Docker
+```bash
+docker build -t ace-step-studio .
+docker run --gpus all -p 8788:8788 -p 5175:5175 -p 8080:8080 -v $(pwd)/data:/workspace/data ace-step-studio
+```
+
+### RunPod / Cloud
+See the [RunPod Deployment Guide](docs/RUNPOD-HOWTO.md).
 
 Default ports:
 - Backend: `8788`

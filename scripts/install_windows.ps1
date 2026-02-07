@@ -1,3 +1,6 @@
+# FNGarvin - ACE-Step Studio Installer (Windows)
+# MIT License 2026
+
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 $pyEnv = Join-Path $ROOT "backend/.venv"
@@ -5,55 +8,37 @@ $defaultAce = [System.IO.Path]::GetFullPath((Join-Path $ROOT "..\ACE-Step-1.5"))
 $aceRepo = if ($env:ACE_STEP_REPO_PATH) { $env:ACE_STEP_REPO_PATH } else { $defaultAce }
 $nodeDir = Join-Path $ROOT "frontend"
 
-function New-ProjectVenv {
-  param([string]$Path)
+Write-Host "======================================================================"
+Write-Host "         ACE-STEP STUDIO - INSTALLER (Windows)"
+Write-Host "======================================================================"
 
-  $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
-  if ($pyLauncher) {
-    & py -3.11 -c "import sys; assert sys.version_info[:2] == (3, 11)"
-    if ($LASTEXITCODE -eq 0) {
-      & py -3.11 -m venv $Path
-      if ($LASTEXITCODE -eq 0) {
-        return
-      }
-      throw "Failed to create virtualenv with Python 3.11."
-    }
-  }
-
-  try {
-    $version = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
-  } catch {
-    throw "Python 3.11 x64 is required. Install it, then rerun this script."
-  }
-
-  if ($version -ne "3.11") {
-    throw "Python 3.11 x64 is required. Current python is $version. Install 3.11 and rerun."
-  }
-
-  & python -m venv $Path
+# Check/Install uv
+if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
+    Write-Host "[INFO] Installing uv..."
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 }
 
-Write-Host "==> Creating Python 3.11 virtual environment at $pyEnv"
-New-ProjectVenv -Path $pyEnv
+Write-Host "[STEP 1/5] Preparing Python Environment..."
+# uv handles python download and venv creation
+uv venv $pyEnv --python 3.11 --seed --managed-python
 if (-not (Test-Path "$pyEnv\Scripts\Activate.ps1")) {
-  throw "Virtual environment was not created. Install Python 3.11 x64 and rerun. Example: winget install --id Python.Python.3.11 -e"
+  throw "Virtual environment was not created successfully."
 }
 & "$pyEnv/Scripts/Activate.ps1"
-python -m pip install --upgrade pip
-python -m pip install "numpy<2"
 
-Write-Host "==> Select accelerator:"
-Write-Host "   1) CPU / Apple (default)"
+Write-Host "[STEP 2/5] Installing PyTorch..."
+Write-Host "Select Accelerator:"
+Write-Host "   1) CPU (Default)"
 Write-Host "   2) NVIDIA CUDA 12.1"
-Write-Host "   3) CPU only"
-$choice = Read-Host "Choose option [1/2/3]"
+$choice = Read-Host "Choose option [1/2]"
 if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
+
 switch ($choice) {
-  "2" { python -m pip install torch==2.1.2+cu121 torchvision==0.16.2+cu121 torchaudio==2.1.2+cu121 --index-url https://download.pytorch.org/whl/cu121 }
-  "3" { python -m pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cpu }
-  default { python -m pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cpu }
+  "2" { uv pip install torch==2.1.2+cu121 torchvision==0.16.2+cu121 torchaudio==2.1.2+cu121 --index-url https://download.pytorch.org/whl/cu121 }
+  default { uv pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cpu }
 }
 
+Write-Host "[STEP 3/5] Setup ACE-Step Repository..."
 if (-not (Test-Path $aceRepo)) {
   $reply = Read-Host "ACE-Step repo not found at $aceRepo. Clone now? [Y/n]"
   if ([string]::IsNullOrWhiteSpace($reply) -or $reply -match "^[Yy]") {
@@ -64,10 +49,11 @@ if (-not (Test-Path $aceRepo)) {
   }
 }
 
-Write-Host "==> Installing backend"
-python -m pip install -e "$ROOT/backend"
+Write-Host "[STEP 4/5] Installing Application..."
+Write-Host "[INFO] Installing backend..."
+uv pip install -e "$ROOT/backend" --link-mode hardlink
 
-Write-Host "==> Installing ACE-Step runtime dependencies (without vllm)"
+Write-Host "[INFO] Installing ACE-Step dependencies..."
 $aceCoreDeps = @(
   "transformers>=4.51.0,<4.58.0",
   "diffusers",
@@ -84,12 +70,12 @@ $aceCoreDeps = @(
   "torchao",
   "modelscope"
 )
-python -m pip install @aceCoreDeps
+uv pip install @aceCoreDeps --link-mode hardlink
 
-Write-Host "==> Installing ACE-Step editable package (no transitive deps)"
-python -m pip install -e "$aceRepo" --no-deps
+Write-Host "[INFO] Installing ACE-Step in editable mode..."
+uv pip install -e "$aceRepo" --no-deps --link-mode hardlink
 
-Write-Host "==> Seeding runtime config"
+Write-Host "[INFO] Seeding runtime config..."
 $runtimeScript = @'
 from backend.app.runtime_config import update_runtime_config
 update_runtime_config(
@@ -105,9 +91,12 @@ print("Runtime config initialized at data/runtime_config.json")
 '@
 python -c $runtimeScript
 
-Deactivate
-
-Write-Host "==> Installing frontend dependencies"
+Write-Host "[STEP 5/5] Installing Frontend..."
 Set-Location $nodeDir
-npm install
-Write-Host "Install complete. Activate venv via backend/.venv/Scripts/Activate.ps1"
+if (Get-Command "npm" -ErrorAction SilentlyContinue) {
+    npm install
+} else {
+    Write-Warning "npm not found. Skipping frontend installation."
+}
+
+Write-Host "Installation complete. Run scripts/start.bat to launch."
