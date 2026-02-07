@@ -52,7 +52,16 @@ See the full step-by-step setup guide here: [docs/installation.md](./docs/instal
 ./scripts/start.bat
 ```
 
-### Docker
+### Docker (Pre-built)
+```bash
+# Pull from GitHub Container Registry
+docker run --gpus all -p 8788:8788 -p 5175:5175 -p 8080:8080 \
+  -v $(pwd)/data:/workspace/data \
+  -v $(pwd)/checkpoints:/workspace/ACE-Step-1.5/checkpoints \
+  ghcr.io/fngarvin/ace-step-studio:latest
+```
+
+### Docker (Build Locally)
 ```bash
 docker build -t ace-step-studio .
 docker run --gpus all -p 8788:8788 -p 5175:5175 -p 8080:8080 -v $(pwd)/data:/workspace/data ace-step-studio
