@@ -58,7 +58,7 @@ else
     # Prepare install args
     INSTALL_ARGS=""
     if [ "$USE_SYSTEM" = true ]; then
-        INSTALL_ARGS="--system"
+        INSTALL_ARGS="--system --break-system-packages"
     fi
 
     case "$ACC_CHOICE" in
