@@ -39,7 +39,7 @@ ENV ACE_STEP_REPO_PATH=/workspace/ACE-Step-1.5
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     chmod +x scripts/install.sh && \
-    ./scripts/install.sh
+    ./scripts/install.sh --system
 
 # Environment Variables for Runtime
 ENV HF_HOME="/workspace/models"
