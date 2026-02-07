@@ -29,7 +29,15 @@ echo "======================================================================"
 # Start Backend
 echo "[INFO] Starting Backend on $HOST:$BACKEND_PORT..."
 export PYTHONPATH=$PYTHONPATH:$(pwd)
-python -m uvicorn backend.app.main:app --host "$HOST" --port "$BACKEND_PORT" &
+
+# Logging configuration
+UVICORN_ARGS=""
+if [ "$QUIET_LOGS" = "true" ]; then
+    echo "[INFO] Quiet mode enabled: Suppressing access logs."
+    UVICORN_ARGS="--log-level warning --no-access-log"
+fi
+
+python -m uvicorn backend.app.main:app --host "$HOST" --port "$BACKEND_PORT" $UVICORN_ARGS &
 BACKEND_PID=$!
 
 # Start Frontend

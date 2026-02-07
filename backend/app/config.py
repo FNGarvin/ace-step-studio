@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     # Paths
     project_root: Path = Field(default=Path(__file__).resolve().parents[2])
     data_root: Path = Field(default=Path("data"))
-    ace_repo_path: Path = Field(default=Path("../ACE-Step-1.5"), description="Path to the ACE-Step repository")
-    checkpoints_path: Path = Field(default=Path("../ACE-Step-1.5/checkpoints"))
+    ace_repo_path: Path = Field(default=Path("ACE-Step-1.5"), description="Path to the ACE-Step repository")
+    checkpoints_path: Path = Field(default=Path("ACE-Step-1.5/checkpoints"))
 
     # Models
     default_model_config: str = Field(default="acestep-v15-turbo", description="Default DiT model configuration")

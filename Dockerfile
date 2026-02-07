@@ -44,6 +44,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Environment Variables for Runtime
 ENV HF_HOME="/workspace/models"
 ENV TORCH_HOME="/workspace/models"
+ENV QUIET_LOGS="true"
 
 RUN chmod +x run.sh entrypoint.sh
 

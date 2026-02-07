@@ -90,10 +90,6 @@ fi
 
 echo "[STEP 4/5] Installing Application..."
 echo "[INFO] Installing backend dependencies..."
-INSTALL_ARGS=""
-if [ "$USE_SYSTEM" = true ]; then
-    INSTALL_ARGS="--system"
-fi
 uv pip install $INSTALL_ARGS -e "$ROOT_DIR/backend"
 
 echo "[INFO] Installing ACE-Step dependencies..."
