@@ -62,6 +62,7 @@ async def queue_generation(
     service = GenerationService(session)
     generation = await service.create(payload)
 
+    logger.info("Queuing generation job for song: %s (ID: %s)", generation.title, generation.id)
     asyncio.create_task(run_generation_job(generation.id))
     return _to_response(generation)
 
@@ -258,7 +259,9 @@ async def run_generation_job(generation_id: str) -> None:
 
             job = create_job_from_model(generation)
             engine.ensure_variant(job.model_variant)
+            logger.info("Starting generation for job %s using variant %s", generation.id, job.model_variant)
             result = await engine.generate_async(job)
+            logger.info("Generation complete for job %s", generation.id)
             merged_metadata = {**metadata, **(result.metadata or {})}
             await service.update(
                 generation,

@@ -52,8 +52,8 @@ class GenerationJob:
             time_signature=generation.time_signature,
             metadata=generation.metadata_json or {},
             cover_strength=generation.cover_strength,
-            source_audio_path=generation.source_audio_path,
-            reference_audio_path=generation.reference_audio_path,
+            source_audio_path=getattr(generation, "source_audio_path", None),
+            reference_audio_path=getattr(generation, "reference_audio_path", None),
         )
 
 
@@ -102,15 +102,26 @@ class ACEEngine:
             raise FileNotFoundError(f"ACE-Step repo not found at {self.repo_path}")
         repo_str = str(self.repo_path)
         if repo_str not in sys.path:
+            logger.info("Adding %s to sys.path", repo_str)
             sys.path.insert(0, repo_str)
+        print("[DEBUG] Importing acestep modules...", flush=True)
+        logger.info("Importing acestep modules...")
         try:
+            print("[DEBUG] Importing AceStepHandler...", flush=True)
+            logger.info("Importing AceStepHandler...")
             from acestep.handler import AceStepHandler  # type: ignore
+            print("[DEBUG] Importing LLMHandler...", flush=True)
+            logger.info("Importing LLMHandler...")
             from acestep.llm_inference import LLMHandler  # type: ignore
+            print("[DEBUG] Importing inference functions...", flush=True)
+            logger.info("Importing inference functions...")
             from acestep.inference import (  # type: ignore
                 GenerationConfig as ACEGenerationConfig,
                 GenerationParams as ACEGenerationParams,
                 generate_music,
             )
+            print("[DEBUG] Importing gpu_config...", flush=True)
+            logger.info("Importing gpu_config...")
             from acestep.gpu_config import get_gpu_config, set_global_gpu_config  # type: ignore
 
             self.AceStepHandler = AceStepHandler
@@ -131,8 +142,11 @@ class ACEEngine:
         if self.initialized and not model_config and not variant:
             return
         target_variant = variant or settings.default_model_variant
+        logger.info("Initializing ACEEngine for variant: %s", target_variant)
         self._prepare_environment()
+        logger.info("Engine environment prepared")
         self._import_modules()
+        logger.info("Engine modules imported")
 
         self._load_model(target_variant, model_config=model_config)
 

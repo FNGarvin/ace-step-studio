@@ -8,6 +8,26 @@ set -e
 HOST="0.0.0.0"
 BACKEND_PORT=8788
 FRONTEND_PORT=5175
+QUIET=true
+VERBOSE=false
+
+# Simple Flag Parsing
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -q|--quiet) QUIET=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        /bin/bash|*/run.sh) shift ;; # Ignore entrypoint noise
+        *) echo "[WARNING] Unknown parameter passed: $1"; shift ;;
+    esac
+done
+
+# Ensure Symlink (Insurance for in-place or rebuild)
+if [ ! -L "/ACE-Step-1.5" ]; then
+    echo "[INFO] Setting up /ACE-Step-1.5 symlink..."
+    if [ -d "/workspace/ACE-Step-1.5" ] && [ ! -d "/ACE-Step-1.5" ]; then
+        ln -s /workspace/ACE-Step-1.5 /ACE-Step-1.5
+    fi
+fi
 
 # Activate Environment
 if [ -f "backend/.venv/bin/activate" ]; then
@@ -15,6 +35,10 @@ if [ -f "backend/.venv/bin/activate" ]; then
 elif [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 fi
+
+# Fix LD_LIBRARY_PATH for torchaudio and other libs
+VENV_LIB=$(pwd)/backend/.venv/lib/python3.11/site-packages
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$VENV_LIB/torch/lib:$VENV_LIB/nvidia/cublas/lib:$VENV_LIB/nvidia/cudnn/lib:$VENV_LIB/nvidia/cusolver/lib:$VENV_LIB/nvidia/cusparse/lib:$VENV_LIB/nvidia/nccl/lib:$VENV_LIB/nvidia/nvtx/lib
 
 # Ensure Runtime Config Exists
 if [ ! -f "data/runtime_config.json" ]; then
@@ -32,9 +56,14 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Logging configuration
 UVICORN_ARGS=""
-if [ "$QUIET_LOGS" = "true" ]; then
-    echo "[INFO] Quiet mode enabled: Suppressing access logs."
-    UVICORN_ARGS="--log-level warning --no-access-log"
+if [ "$QUIET" = "true" ] || [ "$QUIET_LOGS" = "true" ]; then
+    echo "[INFO] Quiet mode enabled: Filtering chatty polling logs."
+    UVICORN_ARGS="--log-level info"
+    export ACE_STEP_QUIET=true
+elif [ "$VERBOSE" = "true" ]; then
+    echo "[INFO] Verbose mode enabled."
+    UVICORN_ARGS="--log-level debug"
+    export ACE_STEP_VERBOSE=true
 fi
 
 python -m uvicorn backend.app.main:app --host "$HOST" --port "$BACKEND_PORT" $UVICORN_ARGS &
@@ -43,9 +72,6 @@ BACKEND_PID=$!
 # Start Frontend
 echo "[INFO] Starting Frontend on $HOST:$FRONTEND_PORT..."
 cd frontend
-# In production container, we might serve static files, but for now we follow "dev" mode as per plan?
-# Actually, Dockerfile installs npm deps. Let's run dev server for flexibility as requested in plan "Starts Vite frontend (in dev mode or served build)"
-# "dev" mode is easier for now.
 npm run dev -- --host "$HOST" --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
@@ -53,3 +79,4 @@ FRONTEND_PID=$!
 trap "kill $BACKEND_PID $FRONTEND_PID; exit" SIGINT SIGTERM
 
 wait
+#EOF run.sh

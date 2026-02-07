@@ -10,6 +10,9 @@ class Settings(BaseSettings):
 
     app_name: str = "ACE-Step Studio"
     debug: bool = False
+    log_level: str = "info"
+    quiet: bool = False
+    verbose: bool = False
 
     # Networking
     host: str = Field(default="0.0.0.0", description="Bind address for FastAPI (can be set to Tailscale IP)")

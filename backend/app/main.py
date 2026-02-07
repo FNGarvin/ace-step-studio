@@ -1,7 +1,35 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 from contextlib import asynccontextmanager
+
+# Setup logging earliest to catch all logger inits
+log_level = logging.INFO
+if os.getenv("ACE_STEP_QUIET") == "true":
+    log_level = logging.INFO
+elif os.getenv("ACE_STEP_VERBOSE") == "true":
+    log_level = logging.DEBUG
+
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s %(levelname)s: [%(name)s] %(message)s",
+)
+
+# Refined logging: Suppress repetitive polling noise
+class PollingFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # record.getMessage() contains the log line, e.g., "127.0.0.1:port - GET /path HTTP/1.1 200 OK"
+        msg = record.getMessage()
+        if "GET /api/history" in msg or "GET /api/models" in msg or "GET /api/config" in msg or "GET /health" in msg:
+            return False
+        return True
+
+logging.getLogger("uvicorn.access").addFilter(PollingFilter())
+
+logger = logging.getLogger(__name__)
+logger.info("ACE-Step Studio backend initialized with log level: %s", logging.getLevelName(log_level))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
