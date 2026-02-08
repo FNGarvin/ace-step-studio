@@ -83,7 +83,25 @@ npm run dev -- --host "$HOST" --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
 # Trap for graceful shutdown
-trap "kill $BACKEND_PID $FRONTEND_PID; exit" SIGINT SIGTERM
+# Start SSHD
+echo "[INFO] Starting SSHD..."
+if [ ! -d "/var/run/sshd" ]; then
+    mkdir -p /var/run/sshd
+fi
+# Generate host keys if missing
+if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]; then
+    ssh-keygen -A
+fi
+/usr/sbin/sshd -D &
+SSHD_PID=$!
+
+# Start Filebrowser
+echo "[INFO] Starting Filebrowser on port 8080..."
+filebrowser -r /workspace -p 8080 -a 0.0.0.0 --noauth & # --noauth for simplicity in runpod, adjust if needed
+FILEBROWSER_PID=$!
+
+# Trap for graceful shutdown
+trap "kill $BACKEND_PID $FRONTEND_PID $SSHD_PID $FILEBROWSER_PID; exit" SIGINT SIGTERM
 
 wait
 #EOF run.sh
