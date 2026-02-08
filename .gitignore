@@ -52,3 +52,4 @@ runtime_config.json
 
 # Optional local model drop area
 models/
+podman-compose.yaml
