@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Optional, TYPE_CHECKING
@@ -11,6 +13,7 @@ from typing import Any, Literal, Optional, TYPE_CHECKING
 from ..config import settings
 from ..hardware import mps_available
 from ..runtime_config import get_runtime_config
+from ..utils.filename_utils import sanitize_filename
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..models.generation import Generation
@@ -21,6 +24,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GenerationJob:
     id: str
+    title: Optional[str]
     task_type: Literal["text2music", "cover", "repaint"]
     mode: Literal["simple", "custom"]
     model_variant: str
@@ -35,11 +39,13 @@ class GenerationJob:
     cover_strength: Optional[int]
     source_audio_path: Optional[str]
     reference_audio_path: Optional[str]
+    output_dir: Optional[str]
 
     @classmethod
-    def from_orm(cls, generation: "Generation") -> "GenerationJob":  # type: ignore[name-defined]
+    def from_orm(cls, generation: "Generation", output_dir: Optional[str] = None) -> "GenerationJob":  # type: ignore[name-defined]
         return cls(
             id=generation.id,
+            title=generation.title,
             task_type=generation.task_type,
             mode=generation.mode,
             model_variant=generation.model_variant,
@@ -54,6 +60,7 @@ class GenerationJob:
             cover_strength=generation.cover_strength,
             source_audio_path=getattr(generation, "source_audio_path", None),
             reference_audio_path=getattr(generation, "reference_audio_path", None),
+            output_dir=output_dir,
         )
 
 
@@ -181,6 +188,29 @@ class ACEEngine:
         checkpoint_dir = self.checkpoints_path
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         runtime_config = get_runtime_config()
+
+        # Auto-Download Logic
+        lm_filename = runtime_config.lm_checkpoint
+        full_lm_path = checkpoint_dir / lm_filename
+        
+        # Check if the path exists. Note: runtime_config.lm_checkpoint might be a filename or repo ID.
+        # If it's a filename, we check existence directly.
+        if not full_lm_path.exists():
+             logger.info("5Hz LM model not found at %s. Attempting auto-download...", full_lm_path)
+             try:
+                 # Local import to avoid circular dependency or early import issues
+                 from acestep.model_downloader import download_submodel
+                 success, msg = download_submodel(lm_filename, checkpoint_dir)
+                 if not success:
+                     logger.error("Failed to auto-download 5Hz LM: %s", msg)
+                     # We continue to let the handler fail gracefully or not
+                 else:
+                     logger.info("5Hz LM model downloaded successfully.")
+             except ImportError:
+                 logger.error("Could not import model_downloader. Auto-download skipped.")
+             except Exception as e:
+                 logger.error("Error during 5Hz LM auto-download: %s", e)
+
         logger.info(
             "Loading ACE-Step 5Hz LM '%s' using backend=%s", runtime_config.lm_checkpoint, runtime_config.lm_backend
         )
@@ -197,7 +227,6 @@ class ACEEngine:
             logger.info("ACE-Step LM ready")
         else:
             logger.warning("ACE-Step LM init skipped: %s", status)
-
     def ensure_variant(self, variant: str) -> None:
         if not self.initialized or self.active_variant != variant:
             self.initialize(variant=variant)
@@ -343,6 +372,11 @@ class ACEEngine:
     def _run_generation(self, job: GenerationJob) -> EngineResult:
         if not self.initialized or not self.handler:
             raise RuntimeError("ACE-Step engine not initialized")
+        
+        job_title = job.title or "Untitled"
+        logger.info("Starting generation for '%s' (ID: %s) using variant %s", job_title, job.id, job.model_variant)
+        start_time_perf = time.perf_counter()
+
         params, config, existing_metadata = self._build_params(job)
         self._ensure_llm_ready()
 
@@ -351,7 +385,12 @@ class ACEEngine:
 
         llm = self.llm_handler or _NullLLMHandler()
 
-        output_dir = settings.resolve_path(settings.generations_dir) / job.id
+        llm = self.llm_handler or _NullLLMHandler()
+
+        if job.output_dir:
+            output_dir = Path(job.output_dir)
+        else:
+            output_dir = settings.resolve_path(settings.generations_dir) / job.id
         output_dir.mkdir(parents=True, exist_ok=True)
 
         result = self.generate_music_fn(
@@ -368,7 +407,42 @@ class ACEEngine:
         audio_entries = [audio for audio in result.audios if audio.get("path")]
         if not audio_entries:
             raise RuntimeError("Generation succeeded but no audio paths returned")
-        first_audio_path = Path(audio_entries[0]["path"]).resolve()
+        
+        # Friendly Filename Implementation
+        raw_audio_path = Path(audio_entries[0]["path"]).resolve()
+        
+        safe_title = sanitize_filename(job_title)
+        new_filename = f"{safe_title}-{job.id}.mp3"
+        friendly_audio_path = raw_audio_path.parent / new_filename
+        
+        try:
+            os.rename(raw_audio_path, friendly_audio_path)
+            first_audio_path = friendly_audio_path
+        except Exception as e:
+            logger.warning("Failed to rename to friendly filename: %s", e)
+            first_audio_path = raw_audio_path
+
+        # ID3 Tagging & Metadata Embedding
+        try:
+            from mutagen.id3 import ID3, TIT2, TPE1, COMM
+            audio_tags = ID3()
+            audio_tags.add(TIT2(encoding=3, text=job_title))
+            audio_tags.add(TPE1(encoding=3, text="ACE-Step Studio"))
+            
+            # Build A1111 style parameters string
+            extra = result.extra_outputs or {}
+            meta = extra.get("lm_metadata") or {}
+            params_str = f"Prompt: {job.prompt or ''}\n"
+            params_str += f"Steps: {params.inference_steps}, Guidance: {params.guidance_scale}, Seed: {params.seed}\n"
+            params_str += f"BPM: {meta.get('bpm', 'N/A')}, Key: {meta.get('keyscale', 'N/A')}, Time: {meta.get('timesignature', 'N/A')}\n"
+            params_str += f"Model: {job.model_variant}\n"
+            
+            audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
+            audio_tags.save(str(first_audio_path))
+        except ImportError:
+            logger.debug("mutagen not found, skipping ID3 tags")
+        except Exception as e:
+            logger.warning("Failed to write ID3 tags: %s", e)
 
         lm_metadata = result.extra_outputs.get("lm_metadata", {})
         metas = self._normalize_metas(lm_metadata)
@@ -388,7 +462,7 @@ class ACEEngine:
             "lm_metadata": lm_metadata,
             "time_costs": result.extra_outputs.get("time_costs", {}),
             "seed_value": seed_value,
-            "audio_files": [audio["path"] for audio in audio_entries],
+            "audio_files": [str(first_audio_path)],
             "final_prompt": result.extra_outputs.get("final_prompt", params.caption),
             "final_lyrics": result.extra_outputs.get("final_lyrics", params.lyrics),
         }
@@ -411,6 +485,10 @@ class ACEEngine:
         timesig = metas.get("timesignature")
         if isinstance(timesig, str) and timesig in {"", "N/A"}:
             timesig = None
+
+        elapsed = time.perf_counter() - start_time_perf
+        logger.info("Generation complete for '%s' in %.2fs (Audio length: %ss)", 
+                    job_title, elapsed, duration_value or "unknown")
 
         return EngineResult(
             audio_path=first_audio_path,
@@ -437,8 +515,8 @@ class ACEEngine:
             self.llm_ready = False
 
 
-def create_job_from_model(generation: "Generation") -> GenerationJob:  # type: ignore[name-defined]
-    return GenerationJob.from_orm(generation)
+def create_job_from_model(generation: "Generation", output_dir: Optional[str] = None) -> GenerationJob:  # type: ignore[name-defined]
+    return GenerationJob.from_orm(generation, output_dir=output_dir)
 
 
 engine = ACEEngine()
