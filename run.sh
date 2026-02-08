@@ -36,9 +36,12 @@ elif [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 fi
 
-# Fix LD_LIBRARY_PATH for torchaudio and other libs
-VENV_LIB=$(pwd)/backend/.venv/lib/python3.11/site-packages
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$VENV_LIB/torch/lib:$VENV_LIB/nvidia/cublas/lib:$VENV_LIB/nvidia/cudnn/lib:$VENV_LIB/nvidia/cusolver/lib:$VENV_LIB/nvidia/cusparse/lib:$VENV_LIB/nvidia/nccl/lib:$VENV_LIB/nvidia/nvtx/lib
+# Fix LD_LIBRARY_PATH for torchaudio and other libs (Using absolute paths)
+VENV_LIB=/workspace/backend/.venv/lib/python3.11/site-packages
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$VENV_LIB/torch/lib:$VENV_LIB/nvidia/cublas/lib:$VENV_LIB/nvidia/cuda_cupti/lib:$VENV_LIB/nvidia/cuda_nvrtc/lib:$VENV_LIB/nvidia/cuda_runtime/lib:$VENV_LIB/nvidia/cudnn/lib:$VENV_LIB/nvidia/cufft/lib:$VENV_LIB/nvidia/curand/lib:$VENV_LIB/nvidia/cusolver/lib:$VENV_LIB/nvidia/cusparse/lib:$VENV_LIB/nvidia/nccl/lib:$VENV_LIB/nvidia/nvjitlink/lib:$VENV_LIB/nvidia/nvtx/lib
+export NVIDIA_VISIBLE_DEVICES=all
+echo "[DEBUG] Final LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+echo "[DEBUG] NVIDIA_VISIBLE_DEVICES: $NVIDIA_VISIBLE_DEVICES"
 
 # Ensure Runtime Config Exists
 if [ ! -f "data/runtime_config.json" ]; then
@@ -51,7 +54,7 @@ echo "Starting ACE-Step Studio Container"
 echo "======================================================================"
 
 # Start Backend
-echo "[INFO] Starting Backend on $HOST:$BACKEND_PORT..."
+echo "[DEBUG] Starting Backend on $HOST:$BACKEND_PORT..."
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Logging configuration
@@ -66,7 +69,11 @@ elif [ "$VERBOSE" = "true" ]; then
     export ACE_STEP_VERBOSE=true
 fi
 
-python -m uvicorn backend.app.main:app --host "$HOST" --port "$BACKEND_PORT" $UVICORN_ARGS &
+# Use env to ensure variables are passed to the background process
+env LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+    NVIDIA_VISIBLE_DEVICES="$NVIDIA_VISIBLE_DEVICES" \
+    PYTHONPATH="$PYTHONPATH" \
+    python -m uvicorn backend.app.main:app --host "$HOST" --port "$BACKEND_PORT" $UVICORN_ARGS &
 BACKEND_PID=$!
 
 # Start Frontend

@@ -24,8 +24,10 @@ fi
 
 # Check for --system flag
 USE_SYSTEM=false
+INSTALL_ARGS=""
 if [[ "$*" == *"--system"* ]]; then
     USE_SYSTEM=true
+    INSTALL_ARGS="--system --break-system-packages"
 fi
 
 echo "[STEP 1/5] Preparing Python Environment..."
@@ -55,11 +57,6 @@ else
     fi
     ACC_CHOICE=${ACC_CHOICE:-1}
 
-    # Prepare install args
-    INSTALL_ARGS=""
-    if [ "$USE_SYSTEM" = true ]; then
-        INSTALL_ARGS="--system --break-system-packages"
-    fi
 
     case "$ACC_CHOICE" in
       2)
@@ -103,7 +100,7 @@ echo "[INFO] Installing ACE-Step in editable mode..."
 uv pip install $INSTALL_ARGS -e "$ACE_REPO" --no-deps
 
 echo "[INFO] Seeding runtime config..."
-python <<'PY'
+$VENV_PYTHON <<'PY'
 from backend.app.runtime_config import update_runtime_config
 update_runtime_config(
     lm_enabled=True,

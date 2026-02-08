@@ -1,8 +1,37 @@
 from __future__ import annotations
 
+import os
+
+# Robust initialization of LD_LIBRARY_PATH for AI libraries (torchaudio, torch, nvidia)
+def init_ld_library_path():
+    venv_base = "/workspace/backend/.venv/lib/python3.11/site-packages"
+    extra_paths = [
+        f"{venv_base}/torch/lib",
+        f"{venv_base}/nvidia/cublas/lib",
+        f"{venv_base}/nvidia/cuda_cupti/lib",
+        f"{venv_base}/nvidia/cuda_nvrtc/lib",
+        f"{venv_base}/nvidia/cuda_runtime/lib",
+        f"{venv_base}/nvidia/cudnn/lib",
+        f"{venv_base}/nvidia/cufft/lib",
+        f"{venv_base}/nvidia/curand/lib",
+        f"{venv_base}/nvidia/cusolver/lib",
+        f"{venv_base}/nvidia/cusparse/lib",
+        f"{venv_base}/nvidia/nccl/lib",
+        f"{venv_base}/nvidia/nvjitlink/lib",
+        f"{venv_base}/nvidia/nvtx/lib",
+        "/usr/local/nvidia/lib",
+        "/usr/local/nvidia/lib64"
+    ]
+    current = os.environ.get("LD_LIBRARY_PATH", "")
+    new_path = ":".join(extra_paths)
+    if current:
+        new_path = f"{new_path}:{current}"
+    os.environ["LD_LIBRARY_PATH"] = new_path
+
+init_ld_library_path()
+
 import asyncio
 import logging
-import os
 from contextlib import asynccontextmanager
 
 # Setup logging earliest to catch all logger inits
