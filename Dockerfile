@@ -46,9 +46,8 @@ ENV HF_HOME="/workspace/models"
 ENV TORCH_HOME="/workspace/models"
 ENV QUIET_LOGS="true"
 
-RUN chmod +x run.sh entrypoint.sh
+RUN chmod +x run.sh
 
 EXPOSE 8788 5175 8080 22
 
-ENTRYPOINT ["/workspace/entrypoint.sh"]
 CMD ["/bin/bash", "/workspace/run.sh"]
