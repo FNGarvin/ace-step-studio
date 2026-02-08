@@ -33,10 +33,6 @@ def _cover_url(generation: Generation) -> Optional[str]:
         return f"/api/generations/{generation.id}/cover"
     return None
 
-
-    return None
-
-
 def _to_response(generation: Generation) -> GenerationResponse:
     color = generation.cover_color
     icon = generation.cover_icon

@@ -111,23 +111,18 @@ class ACEEngine:
         if repo_str not in sys.path:
             logger.info("Adding %s to sys.path", repo_str)
             sys.path.insert(0, repo_str)
-        print("[DEBUG] Importing acestep modules...", flush=True)
         logger.info("Importing acestep modules...")
         try:
-            print("[DEBUG] Importing AceStepHandler...", flush=True)
             logger.info("Importing AceStepHandler...")
             from acestep.handler import AceStepHandler  # type: ignore
-            print("[DEBUG] Importing LLMHandler...", flush=True)
             logger.info("Importing LLMHandler...")
             from acestep.llm_inference import LLMHandler  # type: ignore
-            print("[DEBUG] Importing inference functions...", flush=True)
             logger.info("Importing inference functions...")
             from acestep.inference import (  # type: ignore
                 GenerationConfig as ACEGenerationConfig,
                 GenerationParams as ACEGenerationParams,
                 generate_music,
             )
-            print("[DEBUG] Importing gpu_config...", flush=True)
             logger.info("Importing gpu_config...")
             from acestep.gpu_config import get_gpu_config, set_global_gpu_config  # type: ignore
 

@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_LINK_MODE=copy
