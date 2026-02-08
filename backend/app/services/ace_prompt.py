@@ -55,6 +55,25 @@ class ACEPromptEngine:
         self._prepare_environment()
         self._import_modules()
         runtime_config = get_runtime_config()
+        
+        # Auto-download 5Hz LM if missing
+        lm_filename = runtime_config.lm_checkpoint
+        full_lm_path = self.checkpoints_path / lm_filename
+        
+        if not full_lm_path.exists():
+            logger.info("5Hz LM model not found at %s. Attempting auto-download...", full_lm_path)
+            try:
+                from acestep.model_downloader import download_submodel
+                success, msg = download_submodel(lm_filename, self.checkpoints_path)
+                if not success:
+                    logger.error("Failed to auto-download 5Hz LM: %s", msg)
+                else:
+                    logger.info("5Hz LM model downloaded successfully.")
+            except ImportError:
+                logger.error("Could not import model_downloader. Auto-download skipped.")
+            except Exception as e:
+                logger.error("Error during 5Hz LM auto-download: %s", e)
+
         self.llm_handler = self.LLMHandler()
         status, ok = self.llm_handler.initialize(
             checkpoint_dir=str(self.checkpoints_path),
