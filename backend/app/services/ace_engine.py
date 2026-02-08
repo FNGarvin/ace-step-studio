@@ -16,6 +16,15 @@ from ..runtime_config import get_runtime_config
 from ..utils.filename_utils import sanitize_filename
 from ..utils.model_downloader import ensure_5hz_lm
 
+try:
+    from mutagen.id3 import ID3, TIT2, TPE1, COMM
+    HAS_MUTAGEN = True
+except ImportError:
+    HAS_MUTAGEN = False
+
+class _NullLLMHandler:
+    llm_initialized = False
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..models.generation import Generation
 
@@ -358,11 +367,6 @@ class ACEEngine:
         params, config, existing_metadata = self._build_params(job)
         self._ensure_llm_ready()
 
-        class _NullLLMHandler:
-            llm_initialized = False
-
-        llm = self.llm_handler or _NullLLMHandler()
-
         llm = self.llm_handler or _NullLLMHandler()
 
         if job.output_dir:
@@ -411,9 +415,8 @@ class ACEEngine:
                 primary_audio_path = current_audio_path
 
             # ID3 Tagging & Metadata Embedding (only for supported formats)
-            if current_audio_path.suffix.lower() in {".mp3", ".wav"}:
+            if HAS_MUTAGEN and current_audio_path.suffix.lower() in {".mp3", ".wav"}:
                 try:
-                    from mutagen.id3 import ID3, TIT2, TPE1, COMM
                     try:
                         audio_tags = ID3(str(current_audio_path))
                     except Exception:
@@ -432,8 +435,6 @@ class ACEEngine:
                     
                     audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
                     audio_tags.save(str(current_audio_path))
-                except ImportError:
-                    logger.debug("mutagen not found, skipping ID3 tags")
                 except Exception as e:
                     logger.warning("Failed to write ID3 tags to %s: %s", current_audio_path, e)
 

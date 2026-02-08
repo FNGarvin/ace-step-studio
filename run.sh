@@ -14,8 +14,8 @@ VERBOSE=false
 # Simple Flag Parsing
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -q|--quiet) QUIET=true; shift ;;
-        -v|--verbose) VERBOSE=true; shift ;;
+        -q|--quiet) QUIET=true; VERBOSE=false; shift ;;
+        -v|--verbose) VERBOSE=true; QUIET=false; shift ;;
         /bin/bash|*/run.sh) shift ;; # Ignore entrypoint noise
         *) echo "[WARNING] Unknown parameter passed: $1"; shift ;;
     esac
@@ -37,7 +37,14 @@ elif [ -f ".venv/bin/activate" ]; then
 fi
 
 # Fix LD_LIBRARY_PATH for torchaudio and other libs (Using absolute paths)
-VENV_LIB=/workspace/backend/.venv/lib/python3.11/site-packages
+if [ -d "backend/.venv" ]; then
+    VENV_LIB="$(pwd)/backend/.venv/lib/python3.11/site-packages"
+else
+    # Try to find site-packages dynamically (useful for system/docker installs)
+    VENV_LIB=$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "/usr/local/lib/python3.11/dist-packages")
+fi
+
+# We append to the existing path to avoid breaking hard-won local configurations
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$VENV_LIB/torch/lib:$VENV_LIB/nvidia/cublas/lib:$VENV_LIB/nvidia/cuda_cupti/lib:$VENV_LIB/nvidia/cuda_nvrtc/lib:$VENV_LIB/nvidia/cuda_runtime/lib:$VENV_LIB/nvidia/cudnn/lib:$VENV_LIB/nvidia/cufft/lib:$VENV_LIB/nvidia/curand/lib:$VENV_LIB/nvidia/cusolver/lib:$VENV_LIB/nvidia/cusparse/lib:$VENV_LIB/nvidia/nccl/lib:$VENV_LIB/nvidia/nvjitlink/lib:$VENV_LIB/nvidia/nvtx/lib
 export NVIDIA_VISIBLE_DEVICES=all
 echo "[DEBUG] Final LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
@@ -95,9 +102,9 @@ fi
 /usr/sbin/sshd -D &
 SSHD_PID=$!
 
-# Start Filebrowser
+# Start Filebrowser (Rooted in /workspace/data as preferred)
 echo "[INFO] Starting Filebrowser on port 8080..."
-filebrowser -r /workspace -p 8080 -a 0.0.0.0 --noauth & # --noauth for simplicity in runpod, adjust if needed
+filebrowser -r /workspace/data -p 8080 -a 0.0.0.0 --noauth & # --noauth for simplicity in runpod, adjust if needed
 FILEBROWSER_PID=$!
 
 # Trap for graceful shutdown

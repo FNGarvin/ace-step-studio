@@ -231,11 +231,11 @@ async def _generate_cover_for_song(
         output_dir = Path(generation.output_audio_path).parent
     
     if not output_dir:
-         # Check for friendly folder
-         safe_title = sanitize_filename(generation.title or "Untitled")
-         friendly = settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
-         if friendly.exists():
-             output_dir = friendly
+        # Check for friendly folder
+        safe_title = sanitize_filename(generation.title or "Untitled")
+        friendly = settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
+        if friendly.exists():
+            output_dir = friendly
 
     cover_path = await image_generator.generate_cover(generation.id, new_prompt, output_dir=output_dir)
     if not cover_path:
