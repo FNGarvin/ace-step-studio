@@ -14,6 +14,7 @@ from ..config import settings
 from ..hardware import mps_available
 from ..runtime_config import get_runtime_config
 from ..utils.filename_utils import sanitize_filename
+from ..utils.model_downloader import ensure_5hz_lm
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..models.generation import Generation
@@ -186,25 +187,7 @@ class ACEEngine:
 
         # Auto-Download Logic
         lm_filename = runtime_config.lm_checkpoint
-        full_lm_path = checkpoint_dir / lm_filename
-        
-        # Check if the path exists. Note: runtime_config.lm_checkpoint might be a filename or repo ID.
-        # If it's a filename, we check existence directly.
-        if not full_lm_path.exists():
-             logger.info("5Hz LM model not found at %s. Attempting auto-download...", full_lm_path)
-             try:
-                 # Local import to avoid circular dependency or early import issues
-                 from acestep.model_downloader import download_submodel
-                 success, msg = download_submodel(lm_filename, checkpoint_dir)
-                 if not success:
-                     logger.error("Failed to auto-download 5Hz LM: %s", msg)
-                     # We continue to let the handler fail gracefully or not
-                 else:
-                     logger.info("5Hz LM model downloaded successfully.")
-             except ImportError:
-                 logger.error("Could not import model_downloader. Auto-download skipped.")
-             except Exception as e:
-                 logger.error("Error during 5Hz LM auto-download: %s", e)
+        ensure_5hz_lm(lm_filename, checkpoint_dir)
 
         logger.info(
             "Loading ACE-Step 5Hz LM '%s' using backend=%s", runtime_config.lm_checkpoint, runtime_config.lm_backend
@@ -403,41 +386,58 @@ class ACEEngine:
         if not audio_entries:
             raise RuntimeError("Generation succeeded but no audio paths returned")
         
-        # Friendly Filename Implementation
-        raw_audio_path = Path(audio_entries[0]["path"]).resolve()
+        # Multiple Audio Outputs Handling
+        processed_audio_files = []
+        primary_audio_path = None
         
         safe_title = sanitize_filename(job_title)
-        new_filename = f"{safe_title}-{job.id}.mp3"
-        friendly_audio_path = raw_audio_path.parent / new_filename
         
-        try:
-            os.rename(raw_audio_path, friendly_audio_path)
-            first_audio_path = friendly_audio_path
-        except Exception as e:
-            logger.warning("Failed to rename to friendly filename: %s", e)
-            first_audio_path = raw_audio_path
+        for i, audio in enumerate(audio_entries):
+            raw_path = Path(audio["path"]).resolve()
+            
+            # Create a unique friendly filename for each output
+            suffix = f"-{i}" if i > 0 else ""
+            new_filename = f"{safe_title}-{job.id}{suffix}{raw_path.suffix}"
+            friendly_path = raw_path.parent / new_filename
+            
+            try:
+                os.rename(raw_path, friendly_path)
+                current_audio_path = friendly_path
+            except Exception as e:
+                logger.warning("Failed to rename %s to friendly filename: %s", raw_path, e)
+                current_audio_path = raw_path
 
-        # ID3 Tagging & Metadata Embedding
-        try:
-            from mutagen.id3 import ID3, TIT2, TPE1, COMM
-            audio_tags = ID3()
-            audio_tags.add(TIT2(encoding=3, text=job_title))
-            audio_tags.add(TPE1(encoding=3, text="ACE-Step Studio"))
-            
-            # Build A1111 style parameters string
-            extra = result.extra_outputs or {}
-            meta = extra.get("lm_metadata") or {}
-            params_str = f"Prompt: {job.prompt or ''}\n"
-            params_str += f"Steps: {params.inference_steps}, Guidance: {params.guidance_scale}, Seed: {params.seed}\n"
-            params_str += f"BPM: {meta.get('bpm', 'N/A')}, Key: {meta.get('keyscale', 'N/A')}, Time: {meta.get('timesignature', 'N/A')}\n"
-            params_str += f"Model: {job.model_variant}\n"
-            
-            audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
-            audio_tags.save(str(first_audio_path))
-        except ImportError:
-            logger.debug("mutagen not found, skipping ID3 tags")
-        except Exception as e:
-            logger.warning("Failed to write ID3 tags: %s", e)
+            if i == 0:
+                primary_audio_path = current_audio_path
+
+            # ID3 Tagging & Metadata Embedding (only for supported formats)
+            if current_audio_path.suffix.lower() in {".mp3", ".wav"}:
+                try:
+                    from mutagen.id3 import ID3, TIT2, TPE1, COMM
+                    try:
+                        audio_tags = ID3(str(current_audio_path))
+                    except Exception:
+                        audio_tags = ID3()
+                        
+                    audio_tags.add(TIT2(encoding=3, text=job_title))
+                    audio_tags.add(TPE1(encoding=3, text="ACE-Step Studio"))
+                    
+                    # Build parameters string
+                    extra = result.extra_outputs or {}
+                    meta = extra.get("lm_metadata") or {}
+                    params_str = f"Prompt: {job.prompt or ''}\n"
+                    params_str += f"Steps: {params.inference_steps}, Guidance: {params.guidance_scale}, Seed: {params.seed}\n"
+                    params_str += f"BPM: {meta.get('bpm', 'N/A')}, Key: {meta.get('keyscale', 'N/A')}, Time: {meta.get('timesignature', 'N/A')}\n"
+                    params_str += f"Model: {job.model_variant}\n"
+                    
+                    audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
+                    audio_tags.save(str(current_audio_path))
+                except ImportError:
+                    logger.debug("mutagen not found, skipping ID3 tags")
+                except Exception as e:
+                    logger.warning("Failed to write ID3 tags to %s: %s", current_audio_path, e)
+
+            processed_audio_files.append(str(current_audio_path))
 
         lm_metadata = result.extra_outputs.get("lm_metadata", {})
         metas = self._normalize_metas(lm_metadata)
@@ -457,7 +457,8 @@ class ACEEngine:
             "lm_metadata": lm_metadata,
             "time_costs": result.extra_outputs.get("time_costs", {}),
             "seed_value": seed_value,
-            "audio_files": [str(first_audio_path)],
+            "audio_files": processed_audio_files,
+            "primary_audio_file": str(primary_audio_path),
             "final_prompt": result.extra_outputs.get("final_prompt", params.caption),
             "final_lyrics": result.extra_outputs.get("final_lyrics", params.lyrics),
         }
@@ -486,7 +487,7 @@ class ACEEngine:
                     job_title, elapsed, duration_value or "unknown")
 
         return EngineResult(
-            audio_path=first_audio_path,
+            audio_path=primary_audio_path,
             prompt=result.extra_outputs.get("final_prompt", params.caption) or params.caption,
             lyrics=result.extra_outputs.get("final_lyrics", params.lyrics) or params.lyrics,
             metadata=merged_metadata,
