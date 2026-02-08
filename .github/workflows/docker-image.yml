@@ -4,8 +4,24 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [ "master", "main" ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.gif'
+      - '**/*.svg'
+      - 'docs/**'
   push:
     branches: [ "fng-add-docker-ci" ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.gif'
+      - '**/*.svg'
+      - 'docs/**'
 
 env:
   REGISTRY: ghcr.io

@@ -1,59 +1,40 @@
-# Deploying ACE-Step Studio on RunPod
+# ☁️ RunPod Deployment Guide: ACE-Step Studio
 
-This guide explains how to deploy ACE-Step Studio on a RunPod GPU instance using the Docker image.
+Follow this guide to deploy ACE-Step Studio on RunPod for high-performance cloud processing with data-center network speeds.
 
-## Prerequisites
+---
 
--   A [RunPod](https://runpod.io) account.
--   Credits in your RunPod balance.
+### 1. Configure GPU & CUDA Version
+Choose a GPU and any parameters you prefer (e.g. location, network, etc.). 
+> [!IMPORTANT]
+> Ensure you select **CUDA 12.8 and/or higher** in the instance settings to ensure compatibility with the current PyTorch engines and the 5Hz LM model.
 
-## deployment Steps
+### 2. Select the Template
+Search for and select the **ace-step-studio** template. The default parameters should be optimal for most use cases, but feel free to adjust them as desired.
 
-1.  **Select a Template**:
-    -   Go to **Templates** in RunPod.
-    -   Click **New Template**.
-    -   **Name**: ACE-Step Studio
-    -   **Image Name**: `ghcr.io/fngarvin/ace-step-studio:latest` (or your fork's URL)
-    -   **Container Disk**: 20 GB (Recommended)
-    -   **Volume Disk**: 50 GB (Recommended for models)
-    -   **Volume Mount Path**: `/workspace/ACE-Step-1.5/checkpoints` (Crucial for persisting models!)
-    -   **Exposed Ports**: `8788, 5175, 8080, 22`
+Verify that the template, pricing summary, and Pod summary are all to your liking. If so, click the blue **Deploy On-Demand** button at the bottom of the page.
 
-2.  **Deploy a Pod**:
-    -   Select **Secure Cloud** or **Community Cloud**.
-    -   Choose a GPU (e.g., RTX 3090 or RTX 4090).
-    -   Select the **ACE-Step Studio** template you created.
-    -   Click **Deploy**.
+### 3. (Optional) Monitor Deployment
+While the pod initializes, you can monitor the progress by clicking the **Logs** tab. This is where you can see model downloads and any potential initialization errors. 
+> [!NOTE]
+> The model files required are quite large, so if the tool must download them it will take a while.  You can monitor the progress in the logs.
 
-3.  **Access the Application**:
-    -   Once the pod is running, click **Connect**.
-    -   You will see mapped ports for **TCP**.
-    -   Find the public IP and port mapped to `5175` (Frontend).
-    -   Open `http://<public-ip>:<mapped-port-5175>` in your browser.
+### 4. Access the Application
+Once the status is "Running," click the **Connect** button. You will see two primary HTTP services:
+*   **Port 5175:** The ACE-Step Studio Web App (Frontend).
+*   **Port 8788:** The Backend API (you shouldn't need to access this directly).
+*   **Port 8080:** The File Manager (A web-based file browser with full upload and download capabilities).
 
-4.  **Download Models (First Run Only)**:
-    -   **Important**: The container does **not** come with pre-downloaded models to keep the image small.
-    -   Open the **Settings** (gear icon) in the top right of the ACE-Step Studio UI.
-    -   Locate the **Model Selection** list.
-    -   Click the **Red Status Light** next to a model (e.g., "Turbo DiT") to start the download.
-    -   **Wait**: Large models can take several minutes. You can monitor the progress by checking the container logs in RunPod console (`Logs` button).
-    -   Once the light turns **Green**, the model is loaded and ready.
+### 5. Using the App
+The ACE-Step Studio interface allows you to generate music from prompts and lyrics exactly as you would locally.
+> [!TIP]
+> If you go into the settings menu, you can preload the models of your choice by clicking on the small colored circles next to the model names.
 
-5.  **Generate a Song**:
-    -   Enter a prompt (e.g., "Upbeat jazz funk").
-    -   Click **Generate**.
+### 6. Managing Datasets & Models
+Use the integrated **File Manager** to browse the workspace, download your generated songs, or manage your model checkpoints.
+*   **Songs**: `/workspace/data/generation` is where your generated songs are stored.  You can download them individually or the entire directory as a zip file.
 
-## Persistence
-
-By mounting `/workspace/ACE-Step-1.5/checkpoints` to the persistent volume, your downloaded models will survive pod restarts.
-
-## SSH Access
-
--   **Port**: 22 (mapped to a random port by RunPod)
--   **User**: `root`
--   **Password**: There is no password. Use your public SSH key added to RunPod settings.
-
-## File Manager
-
--   Access the web-based file manager on port `8080` (mapped port).
--   Default login: `admin` / `admin` (Change this immediately if exposed publicly!).
+---
+<div align="center">
+  <b>Managed Deployment via RunPod</b>
+</div>
