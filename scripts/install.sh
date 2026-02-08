@@ -50,7 +50,7 @@ if [ "$USE_SYSTEM" = true ] && pip show torch &> /dev/null; then
 else
     echo "Select Accelerator:"
     echo "   1) Apple Silicon (MPS) / CPU (Default)"
-    echo "   2) NVIDIA CUDA 12.1 (Linux)"
+    echo "   2) NVIDIA CUDA (Linux)"
     echo "   3) CPU Only"
     if [ -z "$ACC_CHOICE" ]; then
         read -r -p "Choose [1/2/3]: " ACC_CHOICE
@@ -60,13 +60,13 @@ else
 
     case "$ACC_CHOICE" in
       2)
-        echo "[INFO] Installing Torch (CUDA 12.1)..."
-        uv pip install $INSTALL_ARGS torch==2.1.2+cu121 torchvision==0.16.2+cu121 torchaudio==2.1.2+cu121 --index-url https://download.pytorch.org/whl/cu121
+        echo "[INFO] Installing Torch (CUDA 12.8)..."
+        uv pip install $INSTALL_ARGS torch==2.10.0+cu128 torchvision==0.17.0+cu128 torchaudio==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128
         ;;
       *)
         # Defaulting to standard PyPI for Mac/CPU which usually has wheels for MPS
         echo "[INFO] Installing Torch..."
-        uv pip install $INSTALL_ARGS torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2
+        uv pip install $INSTALL_ARGS torch==2.10.0 torchvision==0.17.0 torchaudio==2.10.0
         ;;
     esac
 fi
