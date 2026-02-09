@@ -122,7 +122,7 @@ export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, 
               value={styleInfluence !== undefined ? `${styleInfluence}%` : undefined}
             />
           </div>
-          {metadata?.time_costs?.total && (
+          {typeof metadata?.time_costs?.total === "number" && (
              <Stat label="Generation Time" value={`${metadata.time_costs.total.toFixed(1)}s`} />
           )}
         </div>

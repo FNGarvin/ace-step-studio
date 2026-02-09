@@ -53,14 +53,6 @@ const ENGLISH_LYRICS_INSTRUCTION =
   "Write lyrics in English unless another language is explicitly requested. Keep verses and choruses labeled.";
 
 export default function App() {
-  useEffect(() => {
-    const hasPending = pendingGenerations.length > 0;
-    if (hasPending) {
-      document.title = `(${pendingGenerations.length}) Generating... | ACE-Step`;
-    } else {
-      document.title = "ACE-Step Studio";
-    }
-  }, [pendingGenerations.length]);
 
 
   const queryClient = useQueryClient();
@@ -77,6 +69,15 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoPlayRequested, setAutoPlayRequested] = useState(false);
   const [pendingGenerations, setPendingGenerations] = useState<PendingGeneration[]>([]);
+
+  useEffect(() => {
+    const hasPending = pendingGenerations.length > 0;
+    if (hasPending) {
+      document.title = `(${pendingGenerations.length}) Generating... | ACE-Step`;
+    } else {
+      document.title = "ACE-Step Studio";
+    }
+  }, [pendingGenerations.length]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [editSong, setEditSong] = useState<GenerationResponse | null>(null);
