@@ -5,7 +5,7 @@
 set -e
 
 # UV Configuration
-export UV_LINK_MODE="hardlink"
+export UV_LINK_MODE="copy"
 export UV_CACHE_DIR="${HOME}/.cache/uv"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"

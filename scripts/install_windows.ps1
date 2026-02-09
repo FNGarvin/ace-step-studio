@@ -12,6 +12,13 @@ Write-Host "====================================================================
 Write-Host "         ACE-STEP STUDIO - INSTALLER (Windows)"
 Write-Host "======================================================================"
 
+# UV Configuration
+$env:UV_LINK_MODE = "copy"
+$env:UV_CACHE_DIR = Join-Path $env:LOCALAPPDATA "uv\cache"
+if (-not (Test-Path $env:UV_CACHE_DIR)) {
+    New-Item -ItemType Directory -Force -Path $env:UV_CACHE_DIR | Out-Null
+}
+
 # Check/Install uv
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     Write-Host "[INFO] Installing uv..."
