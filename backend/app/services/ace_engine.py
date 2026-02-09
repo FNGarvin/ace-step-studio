@@ -418,8 +418,8 @@ class ACEEngine:
                     except Exception:
                         audio_tags = ID3()
                         
-                    audio_tags["TIT2"] = TIT2(encoding=3, text=job_title)
-                    audio_tags["TPE1"] = TPE1(encoding=3, text="ACE-Step Studio")
+                    audio_tags.add(TIT2(encoding=3, text=job_title))
+                    audio_tags.add(TPE1(encoding=3, text="ACE-Step Studio"))
                     
                     # Build parameters string
                     extra = result.extra_outputs or {}
@@ -429,7 +429,7 @@ class ACEEngine:
                     params_str += f"BPM: {meta.get('bpm', 'N/A')}, Key: {meta.get('keyscale', 'N/A')}, Time: {meta.get('timesignature', 'N/A')}\n"
                     params_str += f"Model: {job.model_variant}\n"
                     
-                    audio_tags["COMM"] = COMM(encoding=3, lang='eng', desc='parameters', text=params_str)
+                    audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
                     audio_tags.save(str(current_audio_path))
                 except Exception as e:
                     logger.warning("Failed to write ID3 tags to %s: %s", current_audio_path, e)

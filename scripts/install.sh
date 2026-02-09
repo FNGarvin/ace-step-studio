@@ -37,7 +37,7 @@ if [ "$USE_SYSTEM" = true ]; then
 else
     # Create venv with specific python version
     # Using --seed to ensure pip/setuptools/wheel presence if needed, though uv handles most things
-    uv venv "$ROOT_DIR/backend/.venv" --python 3.11 --seed --managed-python
+    uv venv "$ROOT_DIR/backend/.venv" --python 3.12 --seed --managed-python
     source "$ROOT_DIR/backend/.venv/bin/activate"
     VENV_PYTHON="python"
 fi
