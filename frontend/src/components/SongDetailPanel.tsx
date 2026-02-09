@@ -106,8 +106,15 @@ export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, 
 
         <div className="bg-surface/60 rounded-2xl p-3 space-y-2 text-xs text-subtle">
           <div className="flex gap-4">
-            <Stat label="Meta" value={metaDisplay} />
+            <Stat label="Status" value={song.status === "ready" ? "READY" : song.status?.toUpperCase() || "UNKNOWN"} />
+            <Stat label="Meta" value={formatMeta(song)} />
           </div>
+          {metadata?.metas?.genres && metadata.metas.genres !== "N/A" && (
+            <div className="flex flex-col">
+              <span className="text-[11px] uppercase tracking-wide text-subtle">Style Tags</span>
+              <span className="text-sm font-medium">{metadata.metas.genres}</span>
+            </div>
+          )}
           <div className="flex gap-6">
             <Stat label="Weirdness" value={weirdness !== undefined ? `${weirdness}%` : undefined} />
             <Stat
@@ -115,6 +122,9 @@ export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, 
               value={styleInfluence !== undefined ? `${styleInfluence}%` : undefined}
             />
           </div>
+          {metadata?.time_costs?.total && (
+             <Stat label="Generation Time" value={`${metadata.time_costs.total.toFixed(1)}s`} />
+          )}
         </div>
 
         <details

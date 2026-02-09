@@ -53,6 +53,16 @@ const ENGLISH_LYRICS_INSTRUCTION =
   "Write lyrics in English unless another language is explicitly requested. Keep verses and choruses labeled.";
 
 export default function App() {
+  useEffect(() => {
+    const hasPending = pendingGenerations.length > 0;
+    if (hasPending) {
+      document.title = `(${pendingGenerations.length}) Generating... | ACE-Step`;
+    } else {
+      document.title = "ACE-Step Studio";
+    }
+  }, [pendingGenerations.length]);
+
+
   const queryClient = useQueryClient();
   const { data: config } = useConfig();
   const { data: history } = useHistory();
