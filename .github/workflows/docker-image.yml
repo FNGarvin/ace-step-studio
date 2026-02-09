@@ -13,7 +13,7 @@ on:
       - '**/*.svg'
       - 'docs/**'
   push:
-    branches: [ "fng-add-docker-ci", "fng-qol" ]
+    branches: [ "fng-add-docker-ci" ]
     paths-ignore:
       - '**/*.md'
       - '**/*.png'
