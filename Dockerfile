@@ -5,6 +5,12 @@ ENV UV_LINK_MODE=copy
 ENV UV_CACHE_DIR="/root/.cache/uv"
 ENV PATH="/root/.local/bin:$PATH"
 
+# Proxy configuration for apt
+ARG APT_PROXY
+RUN if [ -n "$APT_PROXY" ]; then \
+        echo "Acquire::http::Proxy \"$APT_PROXY\";" > /etc/apt/apt.conf.d/01proxy; \
+    fi
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
