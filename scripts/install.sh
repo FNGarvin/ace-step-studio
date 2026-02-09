@@ -114,8 +114,9 @@ update_runtime_config(
 print("Runtime config initialized at data/runtime_config.json")
 PY
 
+
 echo "[STEP 5/5] Installing Frontend..."
-cd "$ROOT_DIR/frontend"
+pushd "$ROOT_DIR/frontend" > /dev/null
 if command -v npm &> /dev/null; then
     npm install
 else
@@ -136,6 +137,7 @@ else
         echo "[WARNING] Automatic Node.js installation failed. Please install manually."
     fi
 fi
+popd > /dev/null
 
 echo "======================================================================"
 echo "Installation complete!"

@@ -68,10 +68,10 @@ BACKEND_PID=$!
 # Start Frontend
 echo "[INFO] Starting Frontend on ${HOST}:${FRONTEND_PORT}..."
 if [ -d "frontend" ]; then
-    cd frontend
+    pushd frontend > /dev/null
     npm run dev -- --host "${HOST}" --port "${FRONTEND_PORT}" &
     FRONTEND_PID=$!
-    cd ..
+    popd > /dev/null
 else
     echo "[WARNING] frontend directory not found. Skipping frontend start."
 fi
