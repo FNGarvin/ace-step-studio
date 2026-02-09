@@ -1,7 +1,6 @@
 #!/bin/bash
-# FNGarvin 2026
-# TODO: INSERT LICENSE
-# ACE-Step Studio Runner (Container)
+# FNGarvin - ACE-Step Studio Runner (Container)
+# MIT License 2026
 set -e
 
 echo "======================================================================"
