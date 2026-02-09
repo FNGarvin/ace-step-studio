@@ -90,7 +90,10 @@ update_runtime_config(
 )
 print("Runtime config initialized at data/runtime_config.json")
 '@
-python -c $runtimeScript
+$tempScript = Join-Path $ROOT "seed_config.py"
+$runtimeScript | Out-File -FilePath $tempScript -Encoding UTF8
+python $tempScript
+Remove-Item $tempScript
 
 Write-Host "[STEP 5/5] Installing Frontend..."
 Set-Location $nodeDir
