@@ -16,11 +16,7 @@ from ..runtime_config import get_runtime_config
 from ..utils.filename_utils import sanitize_filename
 from ..utils.model_downloader import ensure_5hz_lm
 
-try:
-    from mutagen.id3 import ID3, TIT2, TPE1, COMM
-    HAS_MUTAGEN = True
-except ImportError:
-    HAS_MUTAGEN = False
+from mutagen.id3 import ID3, TIT2, TPE1, COMM
 
 class _NullLLMHandler:
     llm_initialized = False
@@ -415,7 +411,7 @@ class ACEEngine:
                 primary_audio_path = current_audio_path
 
             # ID3 Tagging & Metadata Embedding (only for supported formats)
-            if HAS_MUTAGEN and current_audio_path.suffix.lower() in {".mp3", ".wav"}:
+            if current_audio_path.suffix.lower() in {".mp3", ".wav"}:
                 try:
                     try:
                         audio_tags = ID3(str(current_audio_path))
