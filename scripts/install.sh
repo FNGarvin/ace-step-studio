@@ -119,8 +119,22 @@ cd "$ROOT_DIR/frontend"
 if command -v npm &> /dev/null; then
     npm install
 else
-    echo "[WARNING] npm not found. Skipping frontend installation."
-    echo "Please install Node.js and run 'npm install' in the frontend directory manually."
+    echo "[INFO] npm not found. Installing fnm and Node.js LTS..."
+    # Install fnm
+    curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$HOME/.local/bin" --skip-shell
+    export PATH="$HOME/.local/bin:$PATH"
+    eval "$(fnm env)"
+    
+    # Install Node LTS
+    fnm install --lts
+    fnm use --lts
+    
+    if command -v npm &> /dev/null; then
+        echo "[INFO] Node.js $(node -v) installed successfully."
+        npm install
+    else
+        echo "[WARNING] Automatic Node.js installation failed. Please install manually."
+    fi
 fi
 
 echo "======================================================================"

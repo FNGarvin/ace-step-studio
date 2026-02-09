@@ -100,7 +100,22 @@ Set-Location $nodeDir
 if (Get-Command "npm" -ErrorAction SilentlyContinue) {
     npm install
 } else {
-    Write-Warning "npm not found. Skipping frontend installation."
+    Write-Host "[INFO] npm not found. Checking for winget..."
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        Write-Host "Installing Node.js LTS via winget..."
+        winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        
+        # Refresh env path from registry to avoid restart if possible
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        if (Get-Command "npm" -ErrorAction SilentlyContinue) {
+             npm install
+        } else {
+             Write-Warning "Node.js installed, but a shell restart is required to use 'npm'. Please restart this script."
+        }
+    } else {
+        Write-Warning "npm not found and winget is unavailable. Please install Node.js manually."
+    }
 }
 
 Write-Host "Installation complete. Run scripts/start.bat to launch."
