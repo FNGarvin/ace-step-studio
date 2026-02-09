@@ -22,7 +22,7 @@ class _NullLLMHandler:
     llm_initialized = False
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..models.generation import Generation
+    from ..models import Generation
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +192,10 @@ class ACEEngine:
 
         # Auto-Download Logic
         lm_filename = runtime_config.lm_checkpoint
-        ensure_5hz_lm(lm_filename, checkpoint_dir)
+        success, msg = ensure_5hz_lm(lm_filename, checkpoint_dir)
+        if not success:
+            logger.error("Failed to ensure ACE-Step 5Hz LM: %s", msg)
+            raise RuntimeError(f"ACE-Step LM download failed: {msg}")
 
         logger.info(
             "Loading ACE-Step 5Hz LM '%s' using backend=%s", runtime_config.lm_checkpoint, runtime_config.lm_backend
@@ -410,8 +413,8 @@ class ACEEngine:
             if i == 0:
                 primary_audio_path = current_audio_path
 
-            # ID3 Tagging & Metadata Embedding (only for supported formats)
-            if current_audio_path.suffix.lower() in {".mp3", ".wav"}:
+            # ID3 Tagging & Metadata Embedding (only for MP3)
+            if current_audio_path.suffix.lower() == ".mp3":
                 try:
                     try:
                         audio_tags = ID3(str(current_audio_path))

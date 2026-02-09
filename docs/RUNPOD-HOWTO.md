@@ -29,7 +29,7 @@ While the pod initializes, you can monitor the progress by clicking the **Logs**
 Once the status is "Running," click the **Connect** button. You will see two primary HTTP services:
 *   **Port 5175:** The ACE-Step Studio Web App (Frontend).
 *   **Port 8788:** The Backend API (you shouldn't need to access this directly).
-*   **Port 8080:** The File Manager (A web-based file browser with full upload and download capabilities).
+*   **Port 8080:** The File Manager (a web-based file browser with full upload and download capabilities).
 
 ![Control Panel](./images/control_panel.png)
 
