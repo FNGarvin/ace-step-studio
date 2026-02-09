@@ -59,10 +59,11 @@ class ACEPromptEngine:
         
         # Auto-download 5Hz LM if missing
         lm_filename = runtime_config.lm_checkpoint
-        success, msg = ensure_5hz_lm(lm_filename, self.checkpoints_path)
-        if not success:
-            logger.error("Failed to ensure ACE-Step 5Hz LM prompt: %s", msg)
-            raise RuntimeError(f"ACE-Step LM download failed: {msg}")
+        try:
+            ensure_5hz_lm(lm_filename, self.checkpoints_path)
+        except RuntimeError as e:
+            logger.error("Failed to ensure ACE-Step 5Hz LM prompt: %s", e)
+            raise RuntimeError(f"ACE-Step LM download failed: {e}") from e
 
         self.llm_handler = self.LLMHandler()
         status, ok = self.llm_handler.initialize(
