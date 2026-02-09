@@ -7,10 +7,11 @@ set -e
 # UV Configuration
 export UV_LINK_MODE="copy"
 export UV_CACHE_DIR="${HOME}/.cache/uv"
-PYTHON_VERSION="3.12"
+# Load centralized versions
+source "$(dirname "$0")/versions.env"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-ACE_REPO="${ACE_STEP_REPO_PATH:-$ROOT_DIR/../ACE-Step-1.5}"
+ACE_REPO="${ACE_STEP_REPO_PATH:-$ROOT_DIR/ACE-Step-1.5}"
 
 echo "======================================================================"
 echo "         ACE-STEP STUDIO - INSTALLER (Linux/macOS)"
@@ -62,12 +63,15 @@ else
     case "$ACC_CHOICE" in
       2)
         echo "[INFO] Installing Torch (CUDA 12.8)..."
-        uv pip install $INSTALL_ARGS torch==2.10.0+cu128 torchvision==0.17.0+cu128 torchaudio==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+        uv pip install $INSTALL_ARGS torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} --index-url ${CUDA_INDEX_URL}
         ;;
       *)
         # Defaulting to standard PyPI for Mac/CPU which usually has wheels for MPS
         echo "[INFO] Installing Torch..."
-        uv pip install $INSTALL_ARGS torch==2.10.0 torchvision==0.17.0 torchaudio==2.10.0
+        pure_torch="${TORCH_VERSION%+*}"
+        pure_vision="${TORCHVISION_VERSION%+*}"
+        pure_audio="${TORCHAUDIO_VERSION%+*}"
+        uv pip install $INSTALL_ARGS torch==${pure_torch} torchvision==${pure_vision} torchaudio==${pure_audio} --index-url ${CPU_INDEX_URL}
         ;;
     esac
 fi

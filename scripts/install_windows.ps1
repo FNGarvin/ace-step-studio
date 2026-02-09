@@ -3,9 +3,26 @@
 
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
-$PYTHON_VERSION = "3.12"
+
+# Parse versions.env for centralized version management
+$versionsFile = Join-Path (Join-Path $ROOT "scripts") "versions.env"
+$versions = @{}
+if (Test-Path $versionsFile) {
+    Get-Content $versionsFile | ForEach-Object {
+        if ($_ -match "^(?<key>[A-Z0-9_]+)=\"(?<value>.*)\"") {
+            $versions[$Matches.key] = $Matches.value
+        }
+    }
+}
+
+$PYTHON_VERSION = if ($versions.PYTHON_VERSION) { $versions.PYTHON_VERSION } else { "3.12" }
+$TORCH_VERSION = if ($versions.TORCH_VERSION) { $versions.TORCH_VERSION } else { "2.10.0+cu128" }
+$TORCHVISION_VERSION = if ($versions.TORCHVISION_VERSION) { $versions.TORCHVISION_VERSION } else { "0.17.0+cu128" }
+$TORCHAUDIO_VERSION = if ($versions.TORCHAUDIO_VERSION) { $versions.TORCHAUDIO_VERSION } else { "2.10.0+cu128" }
+$CUDA_INDEX_URL = if ($versions.CUDA_INDEX_URL) { $versions.CUDA_INDEX_URL } else { "https://download.pytorch.org/whl/cu128" }
+$CPU_INDEX_URL = if ($versions.CPU_INDEX_URL) { $versions.CPU_INDEX_URL } else { "https://download.pytorch.org/whl/cpu" }
 $pyEnv = Join-Path $ROOT "backend/.venv"
-$defaultAce = [System.IO.Path]::GetFullPath((Join-Path $ROOT "..\ACE-Step-1.5"))
+$defaultAce = [System.IO.Path]::GetFullPath((Join-Path $ROOT "ACE-Step-1.5"))
 $aceRepo = if ($env:ACE_STEP_REPO_PATH) { $env:ACE_STEP_REPO_PATH } else { $defaultAce }
 $nodeDir = Join-Path $ROOT "frontend"
 
@@ -43,8 +60,13 @@ $choice = Read-Host "Choose option [1/2]"
 if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
 
 switch ($choice) {
-  "2" { uv pip install torch==2.10.0+cu128 torchvision==0.17.0+cu128 torchaudio==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128 }
-  default { uv pip install torch==2.10.0 torchvision==0.17.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu }
+  "2" { uv pip install torch==$TORCH_VERSION torchvision==$TORCHVISION_VERSION torchaudio==$TORCHAUDIO_VERSION --index-url $CUDA_INDEX_URL }
+  default { 
+    $pureTorch = $TORCH_VERSION -replace '\+.*$', ''
+    $pureVision = $TORCHVISION_VERSION -replace '\+.*$', ''
+    $pureAudio = $TORCHAUDIO_VERSION -replace '\+.*$', ''
+    uv pip install torch==$pureTorch torchvision==$pureVision torchaudio==$pureAudio --index-url $CPU_INDEX_URL 
+  }
 }
 
 Write-Host "[STEP 3/5] Setup ACE-Step Repository..."

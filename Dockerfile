@@ -8,7 +8,7 @@ ENV PATH="/root/.local/bin:$PATH"
 # Proxy configuration for apt
 ARG APT_PROXY
 RUN if [ -n "$APT_PROXY" ]; then \
-        echo "Acquire::http::Proxy \"$APT_PROXY\";" > /etc/apt/apt.conf.d/01proxy; \
+    echo "Acquire::http::Proxy \"$APT_PROXY\";" > /etc/apt/apt.conf.d/01proxy; \
     fi
 
 # Install system dependencies

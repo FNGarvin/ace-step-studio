@@ -147,17 +147,7 @@ async def upload_cover(
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
     
-    dest_dir = settings.resolve_path(settings.generations_dir) / generation.id
-    if generation.cover_image_path:
-        dest_dir = Path(generation.cover_image_path).parent
-    elif generation.output_audio_path:
-        dest_dir = Path(generation.output_audio_path).parent
-    else:
-        # Check if friendly folder exists
-        safe_title = sanitize_filename(generation.title or "Untitled")
-        friendly = settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
-        if friendly.exists():
-            dest_dir = friendly
+    dest_dir = service.resolve_generation_directory(generation)
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     suffix = Path(file.filename or "").suffix.lower() or ".jpg"
@@ -223,19 +213,7 @@ async def _generate_cover_for_song(
 
     metadata["image_prompt"] = new_prompt
     
-    # Determine output_dir
-    output_dir = None
-    if generation.cover_image_path:
-        output_dir = Path(generation.cover_image_path).parent
-    elif generation.output_audio_path:
-        output_dir = Path(generation.output_audio_path).parent
-    
-    if not output_dir:
-        # Check for friendly folder
-        safe_title = sanitize_filename(generation.title or "Untitled")
-        friendly = settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
-        if friendly.exists():
-            output_dir = friendly
+    output_dir = service.resolve_generation_directory(generation)
 
     cover_path = await image_generator.generate_cover(generation.id, new_prompt, output_dir=output_dir)
     if not cover_path:
@@ -276,8 +254,7 @@ async def run_generation_job(generation_id: str) -> None:
             metadata = generation.metadata_json or {}
             image_prompt = metadata.get("image_prompt") or generation.prompt or generation.title
             # Calculate output directory for friendly folders
-            safe_title = sanitize_filename(generation.title or "Untitled")
-            friendly_dir = settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
+            friendly_dir = service.resolve_generation_directory(generation)
             friendly_dir.mkdir(parents=True, exist_ok=True)
 
             if image_prompt:
