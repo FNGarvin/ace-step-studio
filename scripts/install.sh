@@ -7,6 +7,7 @@ set -e
 # UV Configuration
 export UV_LINK_MODE="copy"
 export UV_CACHE_DIR="${HOME}/.cache/uv"
+PYTHON_VERSION="3.12"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ACE_REPO="${ACE_STEP_REPO_PATH:-$ROOT_DIR/../ACE-Step-1.5}"
@@ -37,7 +38,7 @@ if [ "$USE_SYSTEM" = true ]; then
 else
     # Create venv with specific python version
     # Using --seed to ensure pip/setuptools/wheel presence if needed, though uv handles most things
-    uv venv "$ROOT_DIR/backend/.venv" --python 3.12 --seed --managed-python --clear
+    uv venv "$ROOT_DIR/backend/.venv" --python $PYTHON_VERSION --seed --managed-python --clear
     source "$ROOT_DIR/backend/.venv/bin/activate"
     VENV_PYTHON="python"
 fi

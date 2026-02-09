@@ -8,6 +8,7 @@ echo "Starting ACE-Step Studio Container"
 echo "======================================================================"
 
 # Defaults
+PYTHON_VERSION="3.12"
 HOST="0.0.0.0"
 BACKEND_PORT=8788
 FRONTEND_PORT=5175
@@ -33,10 +34,10 @@ fi
 
 # Fix LD_LIBRARY_PATH for torchaudio and other libs
 if [ -d "backend/.venv" ]; then
-    VENV_LIB="$(pwd)/backend/.venv/lib/python3.12/site-packages"
+    VENV_LIB="$(pwd)/backend/.venv/lib/python${PYTHON_VERSION}/site-packages"
 else
     # Try to find site-packages dynamically (useful for system/docker installs)
-    VENV_LIB=$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "/usr/local/lib/python3.12/dist-packages")
+    VENV_LIB=$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "/usr/local/lib/python${PYTHON_VERSION}/dist-packages")
 fi
 
 # We append to the existing path to avoid breaking hard-won local configurations
@@ -97,7 +98,16 @@ fi
 SSHD_PID=$!
 
 # Trap for graceful shutdown
-trap "kill $BACKEND_PID $FRONTEND_PID $FILEBROWSER_PID $SSHD_PID; exit" SIGINT SIGTERM
+# Trap for graceful shutdown
+cleanup() {
+    echo "[INFO] Stopping services..."
+    [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null
+    [ -n "$FRONTEND_PID" ] && kill "$FRONTEND_PID" 2>/dev/null
+    [ -n "$FILEBROWSER_PID" ] && kill "$FILEBROWSER_PID" 2>/dev/null
+    [ -n "$SSHD_PID" ] && kill "$SSHD_PID" 2>/dev/null
+    exit
+}
+trap cleanup SIGINT SIGTERM
 
 echo "[SUCCESS] All services started. Waiting..."
 wait

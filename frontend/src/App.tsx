@@ -77,7 +77,7 @@ export default function App() {
     } else {
       document.title = "ACE-Step Studio";
     }
-  }, [pendingGenerations.length]);
+  }, [pendingGenerations]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [editSong, setEditSong] = useState<GenerationResponse | null>(null);
@@ -373,10 +373,10 @@ export default function App() {
     if (selectedId === id) {
       setSelectedId(undefined);
     }
-     if (playingId === id) {
-       setPlayingId(null);
-       setIsPlaying(false);
-     }
+    if (playingId === id) {
+      setPlayingId(null);
+      setIsPlaying(false);
+    }
     queryClient.invalidateQueries({ queryKey: ["history"] });
   };
 
@@ -574,8 +574,8 @@ export default function App() {
         onGenerate={
           uploadSong
             ? async () => {
-                await handleRegenerateCover(uploadSong.id);
-              }
+              await handleRegenerateCover(uploadSong.id);
+            }
             : undefined
         }
         isGenerating={uploadSong ? coverGenerationState?.id === uploadSong.id : false}

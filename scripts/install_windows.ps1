@@ -3,6 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
+$PYTHON_VERSION = "3.12"
 $pyEnv = Join-Path $ROOT "backend/.venv"
 $defaultAce = [System.IO.Path]::GetFullPath((Join-Path $ROOT "..\ACE-Step-1.5"))
 $aceRepo = if ($env:ACE_STEP_REPO_PATH) { $env:ACE_STEP_REPO_PATH } else { $defaultAce }
@@ -28,7 +29,7 @@ if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
 
 Write-Host "[STEP 1/5] Preparing Python Environment..."
 # uv handles python download and venv creation
-uv venv $pyEnv --python 3.12 --seed --managed-python --clear
+uv venv $pyEnv --python $PYTHON_VERSION --seed --managed-python --clear
 if (-not (Test-Path "$pyEnv\Scripts\Activate.ps1")) {
   throw "Virtual environment was not created successfully."
 }
@@ -37,13 +38,13 @@ if (-not (Test-Path "$pyEnv\Scripts\Activate.ps1")) {
 Write-Host "[STEP 2/5] Installing PyTorch..."
 Write-Host "Select Accelerator:"
 Write-Host "   1) CPU (Default)"
-Write-Host "   2) NVIDIA CUDA 12.1"
+Write-Host "   2) NVIDIA CUDA 12.8"
 $choice = Read-Host "Choose option [1/2]"
 if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
 
 switch ($choice) {
-  "2" { uv pip install torch==2.1.2+cu121 torchvision==0.16.2+cu121 torchaudio==2.1.2+cu121 --index-url https://download.pytorch.org/whl/cu121 }
-  default { uv pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cpu }
+  "2" { uv pip install torch==2.10.0+cu128 torchvision==0.17.0+cu128 torchaudio==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128 }
+  default { uv pip install torch==2.10.0 torchvision==0.17.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu }
 }
 
 Write-Host "[STEP 3/5] Setup ACE-Step Repository..."
