@@ -16,6 +16,7 @@ Write-Host "====================================================================
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
     Write-Host "[INFO] Installing uv..."
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 }
 
 Write-Host "[STEP 1/5] Preparing Python Environment..."
