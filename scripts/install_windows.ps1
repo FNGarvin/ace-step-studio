@@ -17,7 +17,7 @@ if (Test-Path $versionsFile) {
 
 $PYTHON_VERSION = if ($versions.PYTHON_VERSION) { $versions.PYTHON_VERSION } else { "3.12" }
 $TORCH_VERSION = if ($versions.TORCH_VERSION) { $versions.TORCH_VERSION } else { "2.10.0+cu128" }
-$TORCHVISION_VERSION = if ($versions.TORCHVISION_VERSION) { $versions.TORCHVISION_VERSION } else { "0.17.0+cu128" }
+$TORCHVISION_VERSION = if ($versions.TORCHVISION_VERSION) { $versions.TORCHVISION_VERSION } else { "0.25.0+cu128" }
 $TORCHAUDIO_VERSION = if ($versions.TORCHAUDIO_VERSION) { $versions.TORCHAUDIO_VERSION } else { "2.10.0+cu128" }
 $CUDA_INDEX_URL = if ($versions.CUDA_INDEX_URL) { $versions.CUDA_INDEX_URL } else { "https://download.pytorch.org/whl/cu128" }
 $CPU_INDEX_URL = if ($versions.CPU_INDEX_URL) { $versions.CPU_INDEX_URL } else { "https://download.pytorch.org/whl/cpu" }
