@@ -102,7 +102,6 @@ $tempScript = Join-Path $ROOT "seed_config.py"
 $runtimeScript | Out-File -FilePath $tempScript -Encoding UTF8
 python $tempScript
 Remove-Item $tempScript
-Remove-Item $tempScript
 
 # Pre-flight Check for VC++ Redistributables (Greenlet/SQLAlchemy)
 Write-Host "[INFO] Checking for Visual C++ Redistributables..."
