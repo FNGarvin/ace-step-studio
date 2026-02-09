@@ -192,10 +192,11 @@ class ACEEngine:
 
         # Auto-Download Logic
         lm_filename = runtime_config.lm_checkpoint
-        success, msg = ensure_5hz_lm(lm_filename, checkpoint_dir)
-        if not success:
-            logger.error("Failed to ensure ACE-Step 5Hz LM: %s", msg)
-            raise RuntimeError(f"ACE-Step LM download failed: {msg}")
+        try:
+            ensure_5hz_lm(lm_filename, checkpoint_dir)
+        except RuntimeError as e:
+            logger.error("Failed to ensure ACE-Step 5Hz LM: %s", e)
+            raise RuntimeError(f"ACE-Step LM download failed: {e}") from e
 
         logger.info(
             "Loading ACE-Step 5Hz LM '%s' using backend=%s", runtime_config.lm_checkpoint, runtime_config.lm_backend

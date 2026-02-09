@@ -34,7 +34,15 @@ fi
 
 # Fix LD_LIBRARY_PATH for torchaudio and other libs
 if [ -d "backend/.venv" ]; then
-    VENV_LIB="$(pwd)/backend/.venv/lib/python${PYTHON_VERSION}/site-packages"
+    # Use the venv's own interpreter to resolve its site-packages path,
+    # avoiding assumptions about the minor Python version used in the venv.
+    VENV_PYTHON="backend/.venv/bin/python"
+    if [ -x "$VENV_PYTHON" ]; then
+        VENV_LIB=$("$VENV_PYTHON" -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "$(pwd)/backend/.venv")
+    else
+        # Fallback: best-effort guess if the venv python is missing/unexpected
+        VENV_LIB="$(pwd)/backend/.venv"
+    fi
 else
     # Try to find site-packages dynamically (useful for system/docker installs)
     VENV_LIB=$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "/usr/local/lib/python${PYTHON_VERSION}/dist-packages")

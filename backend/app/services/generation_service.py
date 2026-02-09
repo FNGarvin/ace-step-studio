@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import Generation
 from ..schemas.generation import GenerationCreate, GenerationResponse
 from .cover_theme import compute_theme
+from ..config import settings
+from ..utils.filename_utils import sanitize_filename
+from pathlib import Path
 
 
 class GenerationService:
@@ -76,3 +79,14 @@ class GenerationService:
             icon = icon or theme_icon
         response = GenerationResponse.model_validate(generation)
         return response.model_copy(update={"cover_color": color, "cover_icon": icon})
+
+    def resolve_generation_directory(self, generation: Generation) -> Path:
+        """Centralized logic for resolving a generation's output directory."""
+        if generation.cover_image_path:
+            return Path(generation.cover_image_path).parent
+        if generation.output_audio_path:
+            return Path(generation.output_audio_path).parent
+
+        # Consistent default: Friendly folder for humans
+        safe_title = sanitize_filename(generation.title or "Untitled")
+        return settings.resolve_path(settings.generations_dir) / f"{safe_title}_{generation.id}"
