@@ -21,7 +21,7 @@ if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
 
 Write-Host "[STEP 1/5] Preparing Python Environment..."
 # uv handles python download and venv creation
-uv venv $pyEnv --python 3.11 --seed --managed-python
+uv venv $pyEnv --python 3.12 --seed --managed-python
 if (-not (Test-Path "$pyEnv\Scripts\Activate.ps1")) {
   throw "Virtual environment was not created successfully."
 }
