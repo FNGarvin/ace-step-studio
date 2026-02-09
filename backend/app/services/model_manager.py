@@ -21,6 +21,7 @@ class ModelSpec:
     local_folder: str
     type: ModelType
     description: str
+    allow_patterns: list[str] | None = None
 
     @property
     def local_path(self) -> Path:
@@ -45,6 +46,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         local_folder="acestep-5Hz-lm-1.7B",
         type="lm",
         description="Standard 1.7B parameter language model included with the main release.",
+        allow_patterns=["acestep-5Hz-lm-1.7B/**", "config.json", "*.md"],
     ),
     "lm-4b": ModelSpec(
         id="lm-4b",
@@ -61,6 +63,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         local_folder="acestep-v15-base",
         type="dit",
         description="High quality DiT base model for detailed generations.",
+        allow_patterns=["*base*", "*.json", "*.txt"],
     ),
     "dit-turbo": ModelSpec(
         id="dit-turbo",
@@ -69,6 +72,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         local_folder="acestep-v15-turbo",
         type="dit",
         description="Default turbo DiT model for fast generations.",
+        allow_patterns=["acestep-v15-turbo/**", "config.json", "*.md"],
     ),
     "dit-shift": ModelSpec(
         id="dit-shift",
@@ -77,6 +81,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         local_folder="acestep-v15-turbo-continuous",
         type="dit",
         description="Turbo DiT with continuous shift (1-5) for creative control.",
+        allow_patterns=["*continuous*", "*shift*", "*.json", "*.txt"],
     ),
 }
 
@@ -151,6 +156,7 @@ def _download_worker(spec: ModelSpec) -> None:
             local_dir=str(spec.local_path),
             local_dir_use_symlinks=False,
             resume_download=True,
+            allow_patterns=spec.allow_patterns,
         )
         download_state.set(spec.id, "completed", None)
     except Exception as exc:  # noqa: BLE001

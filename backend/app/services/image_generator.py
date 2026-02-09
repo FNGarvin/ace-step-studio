@@ -23,7 +23,7 @@ class ImageGenerator:
         self.queue_endpoint = "https://queue.fal.run/fal-ai/flux-2/klein/9b/base"
         self.cover_size = 1152
 
-    async def generate_cover(self, generation_id: str, prompt: str) -> str | None:
+    async def generate_cover(self, generation_id: str, prompt: str, output_dir: Path | str | None = None) -> str | None:
         config = get_runtime_config()
         provider = (config.image_generation_provider or "none").lower()
         if provider == "none":
@@ -32,21 +32,22 @@ class ImageGenerator:
             return None
         try:
             if provider == "fal":
-                return await self._generate_with_fal(config.fal_api_key, prompt, generation_id)
+                return await self._generate_with_fal(config.fal_api_key, prompt, generation_id, output_dir)
             if provider == "comfy":
                 return await self._generate_with_comfy(
                     config.comfy_base_url,
                     config.comfy_workflow_json,
                     prompt,
                     generation_id,
+                    output_dir,
                 )
             if provider == "a1111":
-                return await self._generate_with_a1111(config.a1111_base_url, prompt, generation_id)
+                return await self._generate_with_a1111(config.a1111_base_url, prompt, generation_id, output_dir)
         except Exception as exc:  # noqa: BLE001
             logger.error("Image generation failed: %s", exc)
         return None
 
-    async def _generate_with_fal(self, api_key: str | None, prompt: str, generation_id: str) -> str | None:
+    async def _generate_with_fal(self, api_key: str | None, prompt: str, generation_id: str, output_dir: Path | str | None = None) -> str | None:
         if not api_key:
             logger.warning("FAL provider selected but API key is missing")
             return None
@@ -95,7 +96,7 @@ class ImageGenerator:
                 raise RuntimeError("FAL image missing url")
             image_content = await client.get(image_url)
             image_content.raise_for_status()
-            return self._persist_image(generation_id, image_content.content, "fal")
+            return self._persist_image(generation_id, image_content.content, "fal", output_dir)
 
     async def _generate_with_comfy(
         self,
@@ -103,6 +104,7 @@ class ImageGenerator:
         workflow_json: str,
         prompt: str,
         generation_id: str,
+        output_dir: Path | str | None = None,
     ) -> str | None:
         if not base_url or not workflow_json.strip():
             logger.warning("ComfyUI provider selected but URL or workflow JSON missing")
@@ -167,13 +169,14 @@ class ImageGenerator:
                 raise RuntimeError("ComfyUI image missing filename")
             view_resp = await client.get(f"{base_url.rstrip('/')}/view", params=view_params)
             view_resp.raise_for_status()
-            return self._persist_image(generation_id, view_resp.content, "comfy")
+            return self._persist_image(generation_id, view_resp.content, "comfy", output_dir)
 
     async def _generate_with_a1111(
         self,
         base_url: str | None,
         prompt: str,
         generation_id: str,
+        output_dir: Path | str | None = None,
     ) -> str | None:
         if not base_url:
             logger.warning("Automatic1111 provider selected but URL missing")
@@ -201,10 +204,13 @@ class ImageGenerator:
                 content = base64.b64decode(image_b64)
             except Exception as exc:  # noqa: BLE001
                 raise RuntimeError("Failed to decode Automatic1111 image") from exc
-            return self._persist_image(generation_id, content, "a1111")
+            return self._persist_image(generation_id, content, "a1111", output_dir)
 
-    def _persist_image(self, generation_id: str, content: bytes, suffix: str) -> str:
-        dest_dir = settings.resolve_path(settings.generations_dir) / generation_id
+    def _persist_image(self, generation_id: str, content: bytes, suffix: str, output_dir: Path | str | None = None) -> str:
+        if output_dir:
+            dest_dir = Path(output_dir)
+        else:
+            dest_dir = settings.resolve_path(settings.generations_dir) / generation_id
         dest_dir.mkdir(parents=True, exist_ok=True)
         pattern = f"cover_{suffix}_*.png"
         for existing in dest_dir.glob(pattern):

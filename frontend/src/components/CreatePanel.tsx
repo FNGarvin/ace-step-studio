@@ -202,11 +202,11 @@ export function CreatePanel({
       lyrics = isInstrumental
         ? "[Instrumental]"
         : await onLLMTask({
-            task: "lyrics",
-            seed_prompt: descriptionSeed,
-            instrumental: false,
-            style_tags: [],
-          });
+          task: "lyrics",
+          seed_prompt: descriptionSeed,
+          instrumental: false,
+          style_tags: [],
+        });
       const titleSeed = `Generate a short, catchy song title for this concept: ${prompt}`;
       const generatedTitle = await onLLMTask({
         task: "prompt",
@@ -470,10 +470,10 @@ export function CreatePanel({
 
           <button
             type="submit"
-            disabled={isSubmitting || availableVariantOptions.length === 0}
+            disabled={isSubmitting}
             className="w-full bg-accent text-black rounded-full py-3 text-sm font-semibold disabled:opacity-50"
           >
-            {availableVariantOptions.length === 0 ? "No Models Ready" : isSubmitting ? "Generating…" : "Create"}
+            {isSubmitting ? "Generating…" : availableVariantOptions.length === 0 ? "Download & Generate" : "Create"}
           </button>
         </form>
       </div>

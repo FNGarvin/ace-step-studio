@@ -21,7 +21,8 @@ dependencies = [
   "numpy>=1.26.4,<2",
   "soundfile>=0.12.1",
   "tenacity>=9.0.0",
-  "huggingface_hub>=0.20.0"
+  "huggingface_hub>=0.20.0",
+    "mutagen>=1.47.0"
 ]
 
 [project.optional-dependencies]

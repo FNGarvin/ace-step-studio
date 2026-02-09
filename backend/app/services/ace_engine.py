@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Optional, TYPE_CHECKING
@@ -11,9 +13,16 @@ from typing import Any, Literal, Optional, TYPE_CHECKING
 from ..config import settings
 from ..hardware import mps_available
 from ..runtime_config import get_runtime_config
+from ..utils.filename_utils import sanitize_filename
+from ..utils.model_downloader import ensure_5hz_lm
+
+from mutagen.id3 import ID3, TIT2, TPE1, COMM
+
+class _NullLLMHandler:
+    llm_initialized = False
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..models.generation import Generation
+    from ..models import Generation
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GenerationJob:
     id: str
+    title: Optional[str]
     task_type: Literal["text2music", "cover", "repaint"]
     mode: Literal["simple", "custom"]
     model_variant: str
@@ -35,11 +45,13 @@ class GenerationJob:
     cover_strength: Optional[int]
     source_audio_path: Optional[str]
     reference_audio_path: Optional[str]
+    output_dir: Optional[str]
 
     @classmethod
-    def from_orm(cls, generation: "Generation") -> "GenerationJob":  # type: ignore[name-defined]
+    def from_orm(cls, generation: "Generation", output_dir: Optional[str] = None) -> "GenerationJob":  # type: ignore[name-defined]
         return cls(
             id=generation.id,
+            title=generation.title,
             task_type=generation.task_type,
             mode=generation.mode,
             model_variant=generation.model_variant,
@@ -52,8 +64,9 @@ class GenerationJob:
             time_signature=generation.time_signature,
             metadata=generation.metadata_json or {},
             cover_strength=generation.cover_strength,
-            source_audio_path=generation.source_audio_path,
-            reference_audio_path=generation.reference_audio_path,
+            source_audio_path=getattr(generation, "source_audio_path", None),
+            reference_audio_path=getattr(generation, "reference_audio_path", None),
+            output_dir=output_dir,
         )
 
 
@@ -102,15 +115,21 @@ class ACEEngine:
             raise FileNotFoundError(f"ACE-Step repo not found at {self.repo_path}")
         repo_str = str(self.repo_path)
         if repo_str not in sys.path:
+            logger.info("Adding %s to sys.path", repo_str)
             sys.path.insert(0, repo_str)
+        logger.info("Importing acestep modules...")
         try:
+            logger.info("Importing AceStepHandler...")
             from acestep.handler import AceStepHandler  # type: ignore
+            logger.info("Importing LLMHandler...")
             from acestep.llm_inference import LLMHandler  # type: ignore
+            logger.info("Importing inference functions...")
             from acestep.inference import (  # type: ignore
                 GenerationConfig as ACEGenerationConfig,
                 GenerationParams as ACEGenerationParams,
                 generate_music,
             )
+            logger.info("Importing gpu_config...")
             from acestep.gpu_config import get_gpu_config, set_global_gpu_config  # type: ignore
 
             self.AceStepHandler = AceStepHandler
@@ -131,8 +150,11 @@ class ACEEngine:
         if self.initialized and not model_config and not variant:
             return
         target_variant = variant or settings.default_model_variant
+        logger.info("Initializing ACEEngine for variant: %s", target_variant)
         self._prepare_environment()
+        logger.info("Engine environment prepared")
         self._import_modules()
+        logger.info("Engine modules imported")
 
         self._load_model(target_variant, model_config=model_config)
 
@@ -167,6 +189,15 @@ class ACEEngine:
         checkpoint_dir = self.checkpoints_path
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         runtime_config = get_runtime_config()
+
+        # Auto-Download Logic
+        lm_filename = runtime_config.lm_checkpoint
+        try:
+            ensure_5hz_lm(lm_filename, checkpoint_dir)
+        except RuntimeError as e:
+            logger.error("Failed to ensure ACE-Step 5Hz LM: %s", e)
+            raise RuntimeError(f"ACE-Step LM download failed: {e}") from e
+
         logger.info(
             "Loading ACE-Step 5Hz LM '%s' using backend=%s", runtime_config.lm_checkpoint, runtime_config.lm_backend
         )
@@ -183,7 +214,6 @@ class ACEEngine:
             logger.info("ACE-Step LM ready")
         else:
             logger.warning("ACE-Step LM init skipped: %s", status)
-
     def ensure_variant(self, variant: str) -> None:
         if not self.initialized or self.active_variant != variant:
             self.initialize(variant=variant)
@@ -329,15 +359,20 @@ class ACEEngine:
     def _run_generation(self, job: GenerationJob) -> EngineResult:
         if not self.initialized or not self.handler:
             raise RuntimeError("ACE-Step engine not initialized")
+        
+        job_title = job.title or "Untitled"
+        logger.info("Starting generation for '%s' (ID: %s) using variant %s", job_title, job.id, job.model_variant)
+        start_time_perf = time.perf_counter()
+
         params, config, existing_metadata = self._build_params(job)
         self._ensure_llm_ready()
 
-        class _NullLLMHandler:
-            llm_initialized = False
-
         llm = self.llm_handler or _NullLLMHandler()
 
-        output_dir = settings.resolve_path(settings.generations_dir) / job.id
+        if job.output_dir:
+            output_dir = Path(job.output_dir)
+        else:
+            output_dir = settings.resolve_path(settings.generations_dir) / job.id
         output_dir.mkdir(parents=True, exist_ok=True)
 
         result = self.generate_music_fn(
@@ -354,7 +389,56 @@ class ACEEngine:
         audio_entries = [audio for audio in result.audios if audio.get("path")]
         if not audio_entries:
             raise RuntimeError("Generation succeeded but no audio paths returned")
-        first_audio_path = Path(audio_entries[0]["path"]).resolve()
+        
+        # Multiple Audio Outputs Handling
+        processed_audio_files = []
+        primary_audio_path = None
+        
+        safe_title = sanitize_filename(job_title)
+        
+        for i, audio in enumerate(audio_entries):
+            raw_path = Path(audio["path"]).resolve()
+            
+            # Create a unique friendly filename for each output
+            suffix = f"-{i}" if i > 0 else ""
+            new_filename = f"{safe_title}-{job.id}{suffix}{raw_path.suffix}"
+            friendly_path = raw_path.parent / new_filename
+            
+            try:
+                os.rename(raw_path, friendly_path)
+                current_audio_path = friendly_path
+            except Exception as e:
+                logger.warning("Failed to rename %s to friendly filename: %s", raw_path, e)
+                current_audio_path = raw_path
+
+            if i == 0:
+                primary_audio_path = current_audio_path
+
+            # ID3 Tagging & Metadata Embedding (only for MP3)
+            if current_audio_path.suffix.lower() == ".mp3":
+                try:
+                    try:
+                        audio_tags = ID3(str(current_audio_path))
+                    except Exception:
+                        audio_tags = ID3()
+                        
+                    audio_tags.add(TIT2(encoding=3, text=job_title))
+                    audio_tags.add(TPE1(encoding=3, text="ACE-Step Studio"))
+                    
+                    # Build parameters string
+                    extra = result.extra_outputs or {}
+                    meta = extra.get("lm_metadata") or {}
+                    params_str = f"Prompt: {job.prompt or ''}\n"
+                    params_str += f"Steps: {params.inference_steps}, Guidance: {params.guidance_scale}, Seed: {params.seed}\n"
+                    params_str += f"BPM: {meta.get('bpm', 'N/A')}, Key: {meta.get('keyscale', 'N/A')}, Time: {meta.get('timesignature', 'N/A')}\n"
+                    params_str += f"Model: {job.model_variant}\n"
+                    
+                    audio_tags.add(COMM(encoding=3, lang='eng', desc='parameters', text=params_str))
+                    audio_tags.save(str(current_audio_path))
+                except Exception as e:
+                    logger.warning("Failed to write ID3 tags to %s: %s", current_audio_path, e)
+
+            processed_audio_files.append(str(current_audio_path))
 
         lm_metadata = result.extra_outputs.get("lm_metadata", {})
         metas = self._normalize_metas(lm_metadata)
@@ -374,7 +458,8 @@ class ACEEngine:
             "lm_metadata": lm_metadata,
             "time_costs": result.extra_outputs.get("time_costs", {}),
             "seed_value": seed_value,
-            "audio_files": [audio["path"] for audio in audio_entries],
+            "audio_files": processed_audio_files,
+            "primary_audio_file": str(primary_audio_path),
             "final_prompt": result.extra_outputs.get("final_prompt", params.caption),
             "final_lyrics": result.extra_outputs.get("final_lyrics", params.lyrics),
         }
@@ -398,8 +483,12 @@ class ACEEngine:
         if isinstance(timesig, str) and timesig in {"", "N/A"}:
             timesig = None
 
+        elapsed = time.perf_counter() - start_time_perf
+        logger.info("Generation complete for '%s' in %.2fs (Audio length: %ss)", 
+                    job_title, elapsed, duration_value or "unknown")
+
         return EngineResult(
-            audio_path=first_audio_path,
+            audio_path=primary_audio_path,
             prompt=result.extra_outputs.get("final_prompt", params.caption) or params.caption,
             lyrics=result.extra_outputs.get("final_lyrics", params.lyrics) or params.lyrics,
             metadata=merged_metadata,
@@ -423,8 +512,8 @@ class ACEEngine:
             self.llm_ready = False
 
 
-def create_job_from_model(generation: "Generation") -> GenerationJob:  # type: ignore[name-defined]
-    return GenerationJob.from_orm(generation)
+def create_job_from_model(generation: "Generation", output_dir: Optional[str] = None) -> GenerationJob:  # type: ignore[name-defined]
+    return GenerationJob.from_orm(generation, output_dir=output_dir)
 
 
 engine = ACEEngine()

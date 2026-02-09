@@ -23,7 +23,7 @@ function formatMeta(item: GenerationResponse) {
 }
 
 export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, onEdit }: Props) {
-  const [styleOpen, setStyleOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(true);
   const [lyricsOpen, setLyricsOpen] = useState(true);
   const Icon = getCoverIcon(song.cover_icon || undefined);
   const metadata = (song.metadata || {}) as any;
@@ -106,8 +106,17 @@ export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, 
 
         <div className="bg-surface/60 rounded-2xl p-3 space-y-2 text-xs text-subtle">
           <div className="flex gap-4">
-            <Stat label="Meta" value={metaDisplay} />
+            <Stat label="Status" value={song.status === "ready" ? "READY" : song.status?.toUpperCase() || "UNKNOWN"} />
+            <Stat label="Meta" value={formatMeta(song)} />
           </div>
+          {metadata?.metas?.genres &&
+            typeof metadata.metas.genres === "string" &&
+            metadata.metas.genres !== "N/A" && (
+              <div className="flex flex-col">
+                <span className="text-[11px] uppercase tracking-wide text-subtle">Style Tags</span>
+                <span className="text-sm font-medium">{metadata.metas.genres}</span>
+              </div>
+            )}
           <div className="flex gap-6">
             <Stat label="Weirdness" value={weirdness !== undefined ? `${weirdness}%` : undefined} />
             <Stat
@@ -115,29 +124,31 @@ export function SongDetailPanel({ song, onClose, onDelete, onDownload, onReuse, 
               value={styleInfluence !== undefined ? `${styleInfluence}%` : undefined}
             />
           </div>
+          {typeof metadata?.time_costs?.total === "number" && (
+            <Stat label="Generation Time" value={`${metadata.time_costs.total.toFixed(1)}s`} />
+          )}
         </div>
 
-        <details
-          className="bg-surface/60 rounded-2xl p-3 text-sm"
-          open={styleOpen}
-          onToggle={(e) => setStyleOpen((e.target as HTMLDetailsElement).open)}
-        >
-          <summary className="cursor-pointer text-xs uppercase tracking-wide text-subtle flex items-center justify-between">
+        <div className="bg-surface/60 rounded-2xl p-3 text-sm">
+          <div className="text-xs uppercase tracking-wide text-subtle flex items-center justify-between">
             Style & Prompt
             <button
               type="button"
-              className="text-xs text-subtle"
+              className="text-xs text-subtle hover:text-white"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 handleCopy(song.prompt);
               }}
+              title="Copy Prompt"
             >
               <Copy className="h-4 w-4" />
             </button>
-          </summary>
-          <p className="mt-2 text-subtle text-xs whitespace-pre-wrap">{song.prompt || "No prompt"}</p>
-        </details>
+          </div>
+          <p className="mt-2 text-xs whitespace-pre-wrap text-foreground/80">
+            {song.prompt || metadata?.prompt || "No prompt"}
+          </p>
+        </div>
 
         {song.lyrics && (
           <details

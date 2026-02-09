@@ -53,6 +53,8 @@ const ENGLISH_LYRICS_INSTRUCTION =
   "Write lyrics in English unless another language is explicitly requested. Keep verses and choruses labeled.";
 
 export default function App() {
+
+
   const queryClient = useQueryClient();
   const { data: config } = useConfig();
   const { data: history } = useHistory();
@@ -67,6 +69,15 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoPlayRequested, setAutoPlayRequested] = useState(false);
   const [pendingGenerations, setPendingGenerations] = useState<PendingGeneration[]>([]);
+
+  useEffect(() => {
+    const hasPending = pendingGenerations.length > 0;
+    if (hasPending) {
+      document.title = `(${pendingGenerations.length}) Generating... | ACE-Step`;
+    } else {
+      document.title = "ACE-Step Studio";
+    }
+  }, [pendingGenerations]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [editSong, setEditSong] = useState<GenerationResponse | null>(null);
@@ -362,10 +373,10 @@ export default function App() {
     if (selectedId === id) {
       setSelectedId(undefined);
     }
-     if (playingId === id) {
-       setPlayingId(null);
-       setIsPlaying(false);
-     }
+    if (playingId === id) {
+      setPlayingId(null);
+      setIsPlaying(false);
+    }
     queryClient.invalidateQueries({ queryKey: ["history"] });
   };
 
@@ -563,8 +574,8 @@ export default function App() {
         onGenerate={
           uploadSong
             ? async () => {
-                await handleRegenerateCover(uploadSong.id);
-              }
+              await handleRegenerateCover(uploadSong.id);
+            }
             : undefined
         }
         isGenerating={uploadSong ? coverGenerationState?.id === uploadSong.id : false}

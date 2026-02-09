@@ -9,6 +9,7 @@ from typing import Optional
 
 from ..config import settings
 from ..runtime_config import get_runtime_config
+from ..utils.model_downloader import ensure_5hz_lm
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,14 @@ class ACEPromptEngine:
         self._prepare_environment()
         self._import_modules()
         runtime_config = get_runtime_config()
+        
+        # Auto-download 5Hz LM if missing
+        lm_filename = runtime_config.lm_checkpoint
+        success, msg = ensure_5hz_lm(lm_filename, self.checkpoints_path)
+        if not success:
+            logger.error("Failed to ensure ACE-Step 5Hz LM prompt: %s", msg)
+            raise RuntimeError(f"ACE-Step LM download failed: {msg}")
+
         self.llm_handler = self.LLMHandler()
         status, ok = self.llm_handler.initialize(
             checkpoint_dir=str(self.checkpoints_path),

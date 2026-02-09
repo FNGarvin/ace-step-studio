@@ -22,6 +22,7 @@ from ..services.llm import llm_service
 from ..schemas.llm import LLMTaskRequest
 from ..config import settings
 from ..runtime_config import get_runtime_config
+from ..utils.filename_utils import sanitize_filename
 
 router = APIRouter(prefix="/api/generations", tags=["generations"])
 logger = logging.getLogger(__name__)
@@ -31,14 +32,6 @@ def _cover_url(generation: Generation) -> Optional[str]:
     if generation.cover_image_path:
         return f"/api/generations/{generation.id}/cover"
     return None
-
-
-def _sanitize_filename(title: str, fallback: str) -> str:
-    base = re.sub(r"[^A-Za-z0-9 _-]+", "", title).strip()
-    if not base:
-        base = fallback
-    return base[:64].strip() or fallback
-
 
 def _to_response(generation: Generation) -> GenerationResponse:
     color = generation.cover_color
@@ -62,6 +55,7 @@ async def queue_generation(
     service = GenerationService(session)
     generation = await service.create(payload)
 
+    logger.info("Queuing generation job for song: %s (ID: %s)", generation.title, generation.id)
     asyncio.create_task(run_generation_job(generation.id))
     return _to_response(generation)
 
@@ -88,7 +82,7 @@ async def download_audio(
     if not generation or not generation.output_audio_path:
         raise HTTPException(status_code=404, detail="Audio not ready")
     ext = Path(generation.output_audio_path).suffix or ".wav"
-    title = _sanitize_filename(generation.title or "song", generation_id)
+    title = sanitize_filename(generation.title or "song", generation_id)
     return FileResponse(generation.output_audio_path, filename=f"{title}{ext}")
 
 
@@ -152,7 +146,9 @@ async def upload_cover(
     generation = await service.get(generation_id)
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
-    dest_dir = settings.resolve_path(settings.generations_dir) / generation.id
+    
+    dest_dir = service.resolve_generation_directory(generation)
+
     dest_dir.mkdir(parents=True, exist_ok=True)
     suffix = Path(file.filename or "").suffix.lower() or ".jpg"
     timestamp = int(time.time())
@@ -215,7 +211,11 @@ async def _generate_cover_for_song(
         logger.warning("LLM image prompt generation failed for %s: %s", generation.id, exc)
     metadata["image_prompt"] = new_prompt
 
-    cover_path = await image_generator.generate_cover(generation.id, new_prompt)
+    metadata["image_prompt"] = new_prompt
+    
+    output_dir = service.resolve_generation_directory(generation)
+
+    cover_path = await image_generator.generate_cover(generation.id, new_prompt, output_dir=output_dir)
     if not cover_path:
         raise RuntimeError("Image generation did not return a cover")
     return await service.update(generation, metadata_json=metadata, cover_image_path=cover_path)
@@ -253,10 +253,14 @@ async def run_generation_job(generation_id: str) -> None:
         try:
             metadata = generation.metadata_json or {}
             image_prompt = metadata.get("image_prompt") or generation.prompt or generation.title
-            if image_prompt:
-                image_task = asyncio.create_task(image_generator.generate_cover(generation.id, image_prompt))
+            # Calculate output directory for friendly folders
+            friendly_dir = service.resolve_generation_directory(generation)
+            friendly_dir.mkdir(parents=True, exist_ok=True)
 
-            job = create_job_from_model(generation)
+            if image_prompt:
+                image_task = asyncio.create_task(image_generator.generate_cover(generation.id, image_prompt, output_dir=friendly_dir))
+
+            job = create_job_from_model(generation, output_dir=str(friendly_dir))
             engine.ensure_variant(job.model_variant)
             result = await engine.generate_async(job)
             merged_metadata = {**metadata, **(result.metadata or {})}
