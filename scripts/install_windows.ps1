@@ -28,7 +28,7 @@ if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
 
 Write-Host "[STEP 1/5] Preparing Python Environment..."
 # uv handles python download and venv creation
-uv venv $pyEnv --python 3.12 --seed --managed-python
+uv venv $pyEnv --python 3.12 --seed --managed-python --clear
 if (-not (Test-Path "$pyEnv\Scripts\Activate.ps1")) {
   throw "Virtual environment was not created successfully."
 }
@@ -101,7 +101,29 @@ $tempScript = Join-Path $ROOT "seed_config.py"
 $runtimeScript | Out-File -FilePath $tempScript -Encoding UTF8
 python $tempScript
 Remove-Item $tempScript
+Remove-Item $tempScript
 
+# Pre-flight Check for VC++ Redistributables (Greenlet/SQLAlchemy)
+Write-Host "[INFO] Checking for Visual C++ Redistributables..."
+$vcppCheckScript = "try:`n    import greenlet`nexcept ImportError as e:`n    if 'DLL load failed' in str(e): print('MISSING_VC_REDIST')`n    else: print(e)"
+$tempCheck = Join-Path $ROOT "check_vcpp.py"
+$vcppCheckScript | Out-File -FilePath $tempCheck -Encoding UTF8
+
+try {
+    $checkResult = & "$pyEnv/Scripts/python.exe" $tempCheck 2>&1
+    if ($checkResult -match "MISSING_VC_REDIST") {
+        Write-Warning "Visual C++ Redistributable is missing (required for Greenlet/SQLAlchemy)."
+        if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+             Write-Host "Installing Microsoft Visual C++ Redistributable (2015-2022) via winget..."
+             winget install -e --id Microsoft.VCRedist.2015+.x64 --accept-source-agreements --accept-package-agreements
+             Write-Warning "VC++ Runtime installed. A system reboot might be required."
+        } else {
+             Write-Error "Please install the Microsoft Visual C++ Redistributable manually."
+        }
+    }
+} finally {
+    if (Test-Path $tempCheck) { Remove-Item $tempCheck }
+}
 Write-Host "[STEP 5/5] Installing Frontend..."
 Push-Location $nodeDir
 try {
