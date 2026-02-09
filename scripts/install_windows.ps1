@@ -9,8 +9,8 @@ $versionsFile = Join-Path (Join-Path $ROOT "scripts") "versions.env"
 $versions = @{}
 if (Test-Path $versionsFile) {
     Get-Content $versionsFile | ForEach-Object {
-        if ($_ -match "^(?<key>[A-Z0-9_]+)=\"(?<value>.*)\"") {
-            $versions[$Matches.key] = $Matches.value
+        if ($_ -match '^([A-Z0-9_]+)="(.+)"') {
+            $versions[$Matches[1]] = $Matches[2]
         }
     }
 }
